@@ -1,0 +1,28 @@
+# Local model cache — huge (~69 GB), read-only, fetched via the add command
+models/
+
+# Python virtualenv (recreate from requirements; contains the patched mlx_lm)
+.venv/
+
+# Byte-compiled / caches
+__pycache__/
+*.py[cod]
+
+# Logs
+logs/
+
+# Secrets / local environment (contains API keys)
+.env
+
+# macOS
+.DS_Store
+
+# App settings are written to ~/Library/Application Support/LocalChat, not here,
+# but ignore any stray local copy just in case.
+settings.json
+
+# Stray empty files that look accidental (each is a 0-byte file in a same-named
+# dir). Left untracked rather than committed; safe to delete.
+/backend
+/collect
+/collects

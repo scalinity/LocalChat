@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Local Chat</title>
+  <!-- All assets vendored locally — no network, no CDN (spec §3.1). -->
+  <link rel="stylesheet" href="vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="vendor/texmath.css">
+  <link rel="stylesheet" href="vendor/hljs-github.css" media="(prefers-color-scheme: light)">
+  <link rel="stylesheet" href="vendor/hljs-github-dark.css" media="(prefers-color-scheme: dark)">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="root" class="is-active">
+
+    <!-- Frameless chrome: window controls + a scoped drag strip (spec §12.1) -->
+    <header class="titlebar">
+      <div class="win-controls" aria-label="Window controls">
+        <button id="btn-close" class="dot dot-close" title="Close" aria-label="Close window"></button>
+        <button id="btn-min" class="dot dot-min" title="Minimize" aria-label="Minimize window"></button>
+      </div>
+
+      <button id="model-button" class="model-button" aria-haspopup="listbox" aria-expanded="false">
+        <span class="model-button__spark" aria-hidden="true"></span>
+        <span id="model-button-label" class="model-button__label">No model</span>
+        <span class="model-button__chev" aria-hidden="true">▾</span>
+      </button>
+
+      <!-- The only draggable region: the empty strip between the controls. -->
+      <div class="drag-strip pywebview-drag-region"></div>
+
+      <div class="title-actions">
+        <button id="btn-new" class="ghost-btn" title="New chat (Cmd+N)">
+          <span class="ghost-btn__plus">+</span> New chat
+        </button>
+        <button id="btn-settings" class="icon-btn" title="Settings" aria-label="Settings">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+               stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3.2"></circle>
+            <path d="M12 2.6v2.4M12 19v2.4M21.4 12H19M5 12H2.6M18.6 5.4l-1.7 1.7M7.1 16.9l-1.7 1.7M18.6 18.6l-1.7-1.7M7.1 7.1 5.4 5.4"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Model dropdown -->
+    <div id="model-menu" class="model-menu" role="listbox" hidden></div>
+
+    <!-- Conversation -->
+    <main id="chat" class="chat">
+      <div id="transcript" class="transcript" hidden></div>
+
+      <section id="empty-state" class="empty-state">
+        <p class="empty-state__eyebrow">on-device · offline</p>
+        <h1 class="empty-state__title">Pick a model to start</h1>
+        <p class="empty-state__sub">Runs entirely on this Mac's GPU. Nothing leaves the machine.</p>
+        <div id="model-cards" class="model-cards"></div>
+      </section>
+    </main>
+
+    <!-- Composer -->
+    <footer class="composer">
+      <div class="composer__inner">
+        <textarea id="input" class="composer__input" rows="1"
+                  placeholder="Message the model…  (Enter to send · Shift+Enter for newline)"
+                  autocomplete="off" spellcheck="false" disabled></textarea>
+        <div class="composer__actions">
+          <button id="btn-send" class="send-btn" disabled aria-label="Send">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h13M12 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          <button id="btn-stop" class="stop-btn" hidden aria-label="Stop generating">
+            <span class="stop-btn__square"></span>
+          </button>
+        </div>
+      </div>
+      <p id="status-line" class="status-line"></p>
+    </footer>
+
+    <!-- Settings drawer -->
+    <div id="scrim" class="scrim" hidden></div>
+    <aside id="settings" class="settings" hidden aria-label="Settings">
+      <header class="settings__head">
+        <h2 class="settings__title">Settings</h2>
+        <button id="settings-close" class="icon-btn" aria-label="Close settings">✕</button>
+      </header>
+
+      <div class="settings__scope">
+        <span class="settings__scope-label" id="scope-context">applies to —</span>
+        <div class="seg" role="tablist" aria-label="Settings scope">
+          <button id="scope-model" class="seg__btn is-on" role="tab">This model</button>
+          <button id="scope-global" class="seg__btn" role="tab">All models</button>
+        </div>
+      </div>
+
+      <div id="settings-body" class="settings__body"></div>
+
+      <footer class="settings__foot">
+        <button id="settings-reset" class="reset-btn">Reset to defaults</button>
+        <span class="settings__autosave">Saved automatically</span>
+      </footer>
+    </aside>
+
+  </div>
+
+  <!-- Vendored libs, loaded in dependency order: katex → texmath, then md, hljs -->
+  <script src="vendor/katex/katex.min.js"></script>
+  <script src="vendor/texmath.js"></script>
+  <script src="vendor/markdown-it.min.js"></script>
+  <script src="vendor/highlight.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
