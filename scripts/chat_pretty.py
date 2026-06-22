@@ -24,7 +24,9 @@ import re
 import readline
 import select
 import sys
+import termios
 import time
+import tty
 
 import mlx.core as mx
 from mlx_lm.utils import load
@@ -44,7 +46,10 @@ RESET = "\x1b[0m"
 # those bytes become part of the prompt text and get fed to the model.
 _BRACKETED_PASTE_START = re.compile(r"\x1b\[200~")
 _BRACKETED_PASTE_END = re.compile(r"\x1b\[201~")
-_READAHEAD: list[str] = []  # bytes consumed while probing for bracketed paste
+_READAHEAD: list[str] = []
+# How long to wait for more paste bytes after the last chunk (large pastes
+# arrive in many kernel packets; stopping at the first ``\\n`` split them).
+_PASTE_IDLE = 0.15
 
 
 def _strip_bracketed_paste(text: str) -> str:
@@ -93,98 +98,171 @@ def _read_line(prefill: str | None = None) -> str:
     return _strip_bracketed_paste(line.rstrip("\n"))
 
 
-def _prompt_line(console, prefill: str | None = None) -> str:
-    """Show the › prompt and read one line (optionally pre-filled for editing)."""
-    console.show_cursor(True)
-    _emit_prompt()
-    return _read_line(prefill)
-
-
-def _try_consume_bracketed_paste() -> str | None:
-    """If stdin holds a bracketed paste (Cmd+V), consume it and return the body."""
+def _drain_stdin():
+    """Drop any bytes already waiting on stdin (e.g. trailing Enter after paste)."""
     fileno = sys.stdin.fileno()
-    b0 = os.read(fileno, 1)
-    if not b0:
-        raise EOFError
-    if b0 != b"\x1b":
-        _READAHEAD.append(b0.decode("utf-8", errors="replace"))
-        return None
+    while select.select([fileno], [], [], 0)[0]:
+        if not os.read(fileno, 65536):
+            break
 
-    buf = bytearray(b0)
-    decoded = buf.decode("utf-8", errors="replace")
-    while "\x1b[201~" not in decoded:
-        chunk = os.read(fileno, 4096)
+
+def _slurp_stdin_burst() -> str:
+    """Read everything the terminal has already buffered (typical of Cmd+V)."""
+    fileno = sys.stdin.fileno()
+    parts: list[bytes] = []
+    while select.select([fileno], [], [], 0)[0]:
+        chunk = os.read(fileno, 65536)
         if not chunk:
             break
-        buf.extend(chunk)
-        decoded = buf.decode("utf-8", errors="replace")
-        if len(buf) > 12 and "[200~" not in decoded:
-            _READAHEAD.append(decoded)
-            return None
-    if "\x1b[200~" not in decoded or "\x1b[201~" not in decoded:
-        _READAHEAD.append(decoded)
+        parts.append(chunk)
+    if not parts:
+        return ""
+    return b"".join(parts).decode("utf-8", errors="replace")
+
+
+def _wait_for_input_burst() -> str:
+    """Collect one paste/typing burst from stdin.
+
+    Do **not** stop at the first newline — multiline pastes often arrive as
+    many small writes, and returning early sends chunk 1 while chunks 2..N
+    become separate REPL turns (multiple model replies).
+    """
+    fileno = sys.stdin.fileno()
+    burst = _slurp_stdin_burst()
+    if not burst:
+        return ""
+    while True:
+        # Bracketed paste (Cmd+V): read until the closing marker.
+        if "\x1b[200~" in burst and "\x1b[201~" not in burst:
+            if select.select([fileno], [], [], _PASTE_IDLE)[0]:
+                burst += _slurp_stdin_burst()
+                continue
+            break
+        if select.select([fileno], [], [], _PASTE_IDLE)[0]:
+            burst += _slurp_stdin_burst()
+            continue
+        break
+    return burst
+
+
+def _looks_like_paste(burst: str) -> bool:
+    if "\x1b[200~" in burst or "\x1b[201~" in burst:
+        return True
+    if burst.count("\n") > 1:
+        return True
+    stripped = burst.rstrip("\r\n")
+    if len(stripped) > 400:
+        return True
+    if (burst.endswith("\n") or burst.endswith("\r\n")) and len(stripped) > 80:
+        return True
+    return False
+
+
+def _parse_bracketed_paste(raw: str) -> str | None:
+    if "\x1b[200~" not in raw or "\x1b[201~" not in raw:
         return None
-    start = decoded.index("\x1b[200~") + len("\x1b[200~")
-    end = decoded.index("\x1b[201~")
-    body = decoded[start:end]
-    tail = decoded[end + len("\x1b[201~") :]
-    while tail.startswith("\r") or tail.startswith("\n"):
-        tail = tail[1:]
-    if tail:
-        _READAHEAD.append(tail)
-    return body
+    start = raw.index("\x1b[200~") + len("\x1b[200~")
+    end = raw.index("\x1b[201~")
+    return raw[start:end]
+
+
+def _confirm_line(prefill: str) -> str:
+    """Show ``prefill`` and wait for Enter without readline (paste-safe)."""
+    _drain_stdin()
+    sys.stdout.write(prefill)
+    sys.stdout.flush()
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    buf = list(prefill)
+    try:
+        tty.setcbreak(fd)
+        while True:
+            ch = os.read(fd, 1)
+            if not ch:
+                raise EOFError
+            c = ch.decode("utf-8", errors="replace")
+            if c in "\n\r":
+                sys.stdout.write("\n")
+                sys.stdout.flush()
+                return "".join(buf)
+            if c == "\x03":
+                raise KeyboardInterrupt
+            if c in ("\x7f", "\b"):
+                if buf:
+                    buf.pop()
+                    sys.stdout.write("\b \b")
+                    sys.stdout.flush()
+                continue
+            buf.append(c)
+            sys.stdout.write(c)
+            sys.stdout.flush()
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+def _wait_enter_only():
+    """Block until the user presses Enter (multiline paste confirm)."""
+    _drain_stdin()
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    try:
+        tty.setcbreak(fd)
+        while True:
+            ch = os.read(fd, 1)
+            if not ch:
+                raise EOFError
+            c = ch.decode("utf-8", errors="replace")
+            if c in "\n\r":
+                sys.stdout.write("\n")
+                sys.stdout.flush()
+                return
+            if c == "\x03":
+                raise KeyboardInterrupt
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+def _confirm_paste(console, text: str) -> str:
+    """Show pasted text and wait for an explicit Enter before sending."""
+    n = len(text.splitlines())
+    if n > 1:
+        console.print(
+            f"[dim]({n} lines pasted — Enter to send, Ctrl+C to cancel)[/]"
+        )
+        _emit_prompt()
+        _wait_enter_only()
+        return text
+    _emit_prompt()
+    return _confirm_line(text)
 
 
 def read_query(console) -> str:
     """Read one user message from stdin.
 
-    Terminal paste (Cmd+V) is bracketed and often ends with ``\\n``, which makes
-    plain ``readline()`` look like an immediate Enter — the message auto-sends.
-    When we detect paste we pre-fill the prompt so you can edit, then press Enter
-    to send deliberately.
-
-    Multiline paste used to also split across loop iterations (looked like a crash);
-    we slurp buffered follow-on lines into one blob before confirming.
+    Terminal paste (Cmd+V) arrives as a fast burst (often multiline). We slurp
+    the whole burst before readline sees it, confirm with Enter, and return one
+    query — never a fragment per line.
     """
     console.show_cursor(True)
     _emit_prompt()
     select.select([sys.stdin], [], [], None)
 
-    pasted = _try_consume_bracketed_paste()
-    if pasted is not None:
-        if "\n" in pasted:
-            n = len(pasted.splitlines())
-            console.print(
-                f"[dim]({n} lines pasted — Enter to send, or type to replace)[/]"
-            )
-            _emit_prompt()
-            replacement = _read_line()
-            return pasted if replacement == "" else replacement
-        return _read_line(prefill=pasted)
+    burst = _wait_for_input_burst()
+    if not burst:
+        return _read_line()
 
-    first = _read_line()
-    lines = [first]
-    while True:
-        ready, _, _ = select.select([sys.stdin], [], [], 0)
-        if not ready:
-            break
-        line = sys.stdin.readline()
-        if line == "":
-            break
-        lines.append(line.rstrip("\n"))
+    body = _parse_bracketed_paste(burst)
+    if body is not None:
+        return _confirm_paste(console, body)
 
-    raw = "\n".join(lines)
-    text = _strip_bracketed_paste(raw)
+    text = _strip_bracketed_paste(burst.rstrip("\r\n"))
 
-    # Buffered extra lines = multiline paste without bracketed-paste mode.
-    if len(lines) > 1:
-        n = len(text.splitlines())
-        console.print(
-            f"[dim]({n} lines pasted — Enter to send, or type to replace)[/]"
-        )
-        _emit_prompt()
-        replacement = _read_line()
-        return text if replacement == "" else replacement
+    if _looks_like_paste(burst):
+        return _confirm_paste(console, text)
+
+    if not burst.endswith("\n") and not burst.endswith("\r\n"):
+        _READAHEAD.append(burst)
+        return _read_line()
 
     return text
 

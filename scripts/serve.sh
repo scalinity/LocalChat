@@ -20,9 +20,10 @@ case "${1:-}" in
   12b) REPO="mlx-community/gemma-4-12B-it-qat-6bit" ;;
   31b) REPO="mlx-community/gemma-4-31B-it-qat-4bit" ;;
   26b) REPO="mlx-community/gemma-4-26b-a4b-8bit" ;;
-  -h|--help) echo "usage: ./serve.sh [all|12b|31b|26b|<hf-repo-id>]"; exit 0 ;;
+  4b|e4b) REPO="mlx-community/gemma-4-e4b-it-4bit" ;;
+  -h|--help) echo "usage: ./serve.sh [all|12b|31b|26b|4b|<hf-repo-id>]"; exit 0 ;;
   */*) REPO="$1" ;;   # preload a full HF repo id; others still load on demand
-  *) echo "usage: ./serve.sh [all|12b|31b|26b|<hf-repo-id>]"; exit 1 ;;
+  *) echo "usage: ./serve.sh [all|12b|31b|26b|4b|<hf-repo-id>]"; exit 1 ;;
 esac
 
 echo "Serving $REPO on http://127.0.0.1:8080/v1"
