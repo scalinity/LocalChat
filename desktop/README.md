@@ -57,25 +57,30 @@ Three kinds are supported:
 - **GGUF** (llama.cpp `.gguf` files): discovered from `models/gguf/*.gguf` or
   downloaded GGUF repos, run via the `GGUFBackend` (llama-cpp-python).
 
-### GGUF prerequisite (and a current limitation on this machine)
+### GGUF prerequisite — `llama-cpp-python` (+ beta-SDK shim)
 
-GGUF needs `llama-cpp-python`, installed into the project venv:
+GGUF needs `llama-cpp-python` in the project venv. **It's already installed**
+(0.3.31, built with Metal). To reinstall/rebuild it, you need the SDK shim in
+`packaging/sdk-shim/` (see below):
 
 ```bash
-CMAKE_ARGS="-DGGML_METAL=on -DGGML_ACCELERATE=off" \
+SHIM=desktop/packaging/sdk-shim
+CMAKE_ARGS="-DGGML_METAL=on -DGGML_ACCELERATE=off -DGGML_BLAS=off \
+  -DCMAKE_C_FLAGS=-I$PWD/$SHIM -DCMAKE_CXX_FLAGS=-I$PWD/$SHIM \
+  -DCMAKE_OBJC_FLAGS=-I$PWD/$SHIM -DCMAKE_OBJCXX_FLAGS=-I$PWD/$SHIM" \
   .venv/bin/pip install llama-cpp-python
 ```
 
-> **Known blocker (2026-06):** on this machine that install currently **fails to
-> build**. The Command Line Tools SDK (version 27.0) is missing
-> `CarbonCore/MacErrors.h`, which `Foundation.h` (and the Accelerate framework)
-> transitively include — so llama.cpp's C/Obj-C compiles error out, even CPU-only.
-> This is a system toolchain defect, not an app bug. Unblock it by **updating the
-> Command Line Tools / installing full Xcode** (a complete SDK that ships the
-> header), then run the pip command above. The app's GGUF backend is already in
-> place: GGUF files are listed and, once the library installs, load and stream
-> with no further changes. Until then, loading a `.gguf` shows a clear
-> "install llama-cpp-python" message.
+> **Why the shim:** this machine runs **macOS 27.0 beta** with the matching beta
+> Command Line Tools (no full Xcode). That SDK is missing several legacy
+> CoreServices/Carbon headers (`CarbonCore/MacErrors.h`, `SearchKit/SKAnalysis.h`,
+> `LangAnalysis/LangAnalysis.h`, `CoreServices/CSIdentity*.h`) that umbrella
+> headers like `Foundation.h` still `#include`, so llama.cpp would not compile in
+> any configuration. `packaging/sdk-shim/` provides empty stubs for exactly those
+> headers (they're only `#include`d, never used by the compiled code) and is put
+> on the compiler's include path via the `-I` flags above. Delete the shim once
+> Apple ships a complete SDK; it's harmless to keep. This affects **any** native
+> Python extension you build on this machine, not just llama.cpp.
 
 Note: thinking traces for GGUF/HF models are detected from textual
 `<think>…</think>` tags (the token-level marker split is Gemma-specific), so

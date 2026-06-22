@@ -259,9 +259,8 @@ def _load_gguf(path: str) -> "GGUFBackend":
     except ImportError as exc:
         raise ModelLoadError(
             "GGUF models need llama-cpp-python, which isn't installed. "
-            "Install it into the project venv: "
-            "CMAKE_ARGS=\"-DGGML_METAL=on -DGGML_ACCELERATE=off\" "
-            ".venv/bin/pip install llama-cpp-python"
+            "See desktop/README.md (Models & formats) for the install command — "
+            "on this beta SDK it requires the packaging/sdk-shim include path."
         ) from exc
     try:
         llm = Llama(

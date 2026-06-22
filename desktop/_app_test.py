@@ -8,6 +8,7 @@ panel, and Markdown rendering — then screenshots and closes.
 """
 import json
 import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -18,7 +19,7 @@ from api import Api
 
 HERE = Path(__file__).resolve().parent
 INDEX = HERE / "web" / "index.html"
-MODEL = "mlx-community/gemma-4-e4b-it-4bit"
+MODEL = sys.argv[1] if len(sys.argv) > 1 else "mlx-community/gemma-4-e4b-it-4bit"
 PROMPT = "Reply in one short sentence with a tiny bit of reasoning: what is 8 times 9?"
 SHOT = "/tmp/localchat_shot.png"
 
