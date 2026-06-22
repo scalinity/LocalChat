@@ -26,7 +26,11 @@ model picker and the right-hand buttons to move the window.
   `models/hub/models--*` (and `*.gguf` files). Loading one unloads the previous
   model and calls `mx.clear_cache()` so RAM returns. The picker has a **Rescan
   models** entry, so models added with the `add` command appear without
-  relaunching.
+  relaunching. Hovering a model row shows a **trash icon** that permanently
+  deletes that model's files after a confirm — this is the **one** place the app
+  writes under `models/` (a deliberate, user-requested override of the read-only
+  rule in §3.2; guarded so it can only touch paths inside `models/`). Adding
+  models stays in the terminal (`add` command), so the offline guarantee holds.
 - **Chat** multi-turn with a live-streaming answer. The model's hidden *thinking*
   trace streams into a separate, collapsible panel that auto-collapses when the
   answer begins.

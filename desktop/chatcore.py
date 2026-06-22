@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 from pathlib import Path
 
 # --- Offline / cache wiring -------------------------------------------------
@@ -168,6 +169,30 @@ def list_models() -> list[dict]:
         seen.add(rp)
         out.append({"id": rp, "label": _gguf_label(p), "path": rp, "kind": "gguf"})
     return out
+
+
+def delete_model(model_id: str) -> str:
+    """Permanently delete a model's files from the local cache and return the path.
+
+    The app is otherwise read-only under ``models/`` (spec §3.2); this is an
+    explicit, user-initiated deletion. Guarded to refuse anything that does not
+    resolve to a path strictly inside the models cache.
+    """
+    if model_id.endswith(".gguf"):
+        target = Path(model_id)
+    else:
+        target = MODELS_DIR / "hub" / ("models--" + model_id.replace("/", "--"))
+    target = target.resolve()
+    models_root = MODELS_DIR.resolve()
+    if target == models_root or models_root not in target.parents:
+        raise ValueError(f"refusing to delete outside the models cache: {target}")
+    if not target.exists():
+        raise FileNotFoundError(f"not found: {target}")
+    if target.is_dir():
+        shutil.rmtree(target)
+    else:
+        target.unlink()
+    return str(target)
 
 
 class ModelLoadError(Exception):
@@ -481,28 +506,59 @@ def build_messages(history: list, system_prompt: str = "") -> list:
     return msgs
 
 
+# Canonical Gemma chat template. Some converted MLX/GGUF checkpoints ship a
+# tokenizer with no ``chat_template`` baked in; transformers then refuses to
+# template at all ("tokenizer.chat_template is not set"). We supply this as the
+# fallback so templating still works fully offline. It has no system role, so
+# callers must merge any system text into the first user turn first.
+GEMMA_CHAT_TEMPLATE = (
+    "{{ bos_token }}{% for message in messages %}"
+    "{% if message['role'] == 'assistant' %}{% set role = 'model' %}"
+    "{% else %}{% set role = message['role'] %}{% endif %}"
+    "{{ '<start_of_turn>' + role + '\n' + (message['content'] | trim) + '<end_of_turn>\n' }}"
+    "{% endfor %}"
+    "{% if add_generation_prompt %}{{ '<start_of_turn>model\n' }}{% endif %}"
+)
+
+
+def _merge_system(messages: list) -> list:
+    """Fold system messages into the following user turn (Gemma has no system role)."""
+    merged: list = []
+    sys_txt = ""
+    for m in messages:
+        if m.get("role") == "system":
+            sys_txt += (m.get("content") or "") + "\n\n"
+        else:
+            if sys_txt and m.get("role") == "user":
+                m = {"role": "user", "content": sys_txt + (m.get("content") or "")}
+                sys_txt = ""
+            merged.append(m)
+    if sys_txt:  # no user turn to attach to — prepend as a lone user message
+        merged.insert(0, {"role": "user", "content": sys_txt.strip()})
+    return merged
+
+
 def _apply_template(tokenizer, messages):
     """Apply the chat template, tolerating models without a system role (Gemma).
 
     Gemma's template has no standalone system role; if it rejects one we merge
-    the system text into the first user turn instead.
+    the system text into the first user turn instead. If the checkpoint ships no
+    template at all, we fall back to the canonical Gemma template (below).
     """
+    if not getattr(tokenizer, "chat_template", None):
+        # No template baked into the checkpoint: use the Gemma fallback, merging
+        # the (unsupported) system role into the first user turn ourselves.
+        return tokenizer.apply_chat_template(
+            _merge_system(messages),
+            add_generation_prompt=True,
+            chat_template=GEMMA_CHAT_TEMPLATE,
+        )
     try:
         return tokenizer.apply_chat_template(messages, add_generation_prompt=True)
-    except Exception:  # noqa: BLE001
-        merged: list = []
-        sys_txt = ""
-        for m in messages:
-            if m.get("role") == "system":
-                sys_txt += (m.get("content") or "") + "\n\n"
-            else:
-                if sys_txt and m.get("role") == "user":
-                    m = {"role": "user", "content": sys_txt + (m.get("content") or "")}
-                    sys_txt = ""
-                merged.append(m)
-        if sys_txt:  # no user turn to attach to — prepend as a lone user message
-            merged.insert(0, {"role": "user", "content": sys_txt.strip()})
-        return tokenizer.apply_chat_template(merged, add_generation_prompt=True)
+    except Exception:  # noqa: BLE001 — template present but rejects the system role
+        return tokenizer.apply_chat_template(
+            _merge_system(messages), add_generation_prompt=True
+        )
 
 
 def generate(model, tokenizer, messages, cache, params, stop_flag=None):

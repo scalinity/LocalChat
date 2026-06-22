@@ -80,17 +80,35 @@ function renderModelMenu() {
     modelMenu.appendChild(none);
   }
   models.forEach((m) => {
-    const item = document.createElement('button');
-    item.className = 'model-menu__item';
-    item.role = 'option';
     const kind = m.kind || 'mlx';
-    item.innerHTML =
+    const row = document.createElement('div');
+    row.className = 'model-menu__item';
+
+    const pick = document.createElement('button');
+    pick.className = 'model-menu__pick';
+    pick.setAttribute('role', 'option');
+    pick.innerHTML =
       `<span class="model-menu__check">${m.id === currentModelId ? '✓' : ''}</span>` +
       `<span class="model-menu__name">${escapeText(m.label)}` +
-      `<span class="model-menu__id">${escapeText(m.id)}</span></span>` +
-      `<span class="model-kind model-kind--${kind}">${kind.toUpperCase()}</span>`;
-    item.addEventListener('click', () => { closeModelMenu(); selectModel(m.id); });
-    modelMenu.appendChild(item);
+      `<span class="model-menu__id">${escapeText(m.id)}</span></span>`;
+    pick.addEventListener('click', () => { closeModelMenu(); selectModel(m.id); });
+
+    const badge = document.createElement('span');
+    badge.className = `model-kind model-kind--${kind}`;
+    badge.textContent = kind.toUpperCase();
+
+    const del = document.createElement('button');
+    del.className = 'model-menu__del';
+    del.title = 'Delete model';
+    del.setAttribute('aria-label', `Delete ${m.label}`);
+    del.innerHTML =
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"></path></svg>';
+    del.addEventListener('click', (e) => { e.stopPropagation(); deleteModel(m.id, m.label); });
+
+    row.append(pick, badge, del);
+    modelMenu.appendChild(row);
   });
   const sep = document.createElement('div');
   sep.className = 'model-menu__sep';
@@ -112,6 +130,50 @@ async function rescanModels() {
   const delta = models.length - before;
   setStatus(delta > 0 ? `found ${delta} new model${delta > 1 ? 's' : ''}`
             : (models.length ? 'model list up to date' : 'no models found'));
+}
+
+async function deleteModel(id, label) {
+  closeModelMenu();
+  const ok = await showConfirm(
+    `Delete "${label}"?\nThis permanently removes the model's files from disk and cannot be undone.`);
+  if (!ok) return;
+  setStatus(`deleting ${label} …`);
+  const res = await window.pywebview.api.delete_model(id);
+  if (!res || !res.ok) {
+    setStatus((res && res.error) || 'Could not delete the model.', true);
+    return;
+  }
+  if (id === currentModelId) {           // the resident model was removed
+    currentModelId = null;
+    transcript.innerHTML = '';
+    turn = null;
+    modelButton.classList.remove('is-ready', 'is-loading');
+  }
+  await rescanModels();
+  syncView();
+  setStatus(`deleted ${label}`);
+}
+
+function showConfirm(message) {
+  return new Promise((resolve) => {
+    const el = $('confirm');
+    $('confirm-msg').textContent = message;
+    el.hidden = false;
+    const ok = $('confirm-ok'), cancel = $('confirm-cancel');
+    const finish = (val) => {
+      el.hidden = true;
+      ok.removeEventListener('click', onOk);
+      cancel.removeEventListener('click', onCancel);
+      el.removeEventListener('click', onBackdrop);
+      resolve(val);
+    };
+    const onOk = () => finish(true);
+    const onCancel = () => finish(false);
+    const onBackdrop = (e) => { if (e.target === el) finish(false); };
+    ok.addEventListener('click', onOk);
+    cancel.addEventListener('click', onCancel);
+    el.addEventListener('click', onBackdrop);
+  });
 }
 
 function renderModelCards() {
@@ -540,6 +602,7 @@ function wireEvents() {
 
   $('btn-close').addEventListener('click', () => window.pywebview.api.close_window());
   $('btn-min').addEventListener('click', () => window.pywebview.api.minimize_window());
+  $('btn-max').addEventListener('click', () => window.pywebview.api.toggle_maximize());
 
   modelButton.addEventListener('click', toggleModelMenu);
   document.addEventListener('click', (e) => {

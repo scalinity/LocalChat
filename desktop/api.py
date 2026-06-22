@@ -67,6 +67,7 @@ class Api:
         self.session = Session()
         self.window = None
         self._scope = "model"          # current Settings scope (UI toggle)
+        self._maximized = False
         self._turn_id = 0
         self._busy = threading.Lock()  # one model/generation op at a time
         # All MLX work (load, generate, unload) runs on ONE dedicated thread:
@@ -129,6 +130,25 @@ class Api:
                 self._busy.release()
 
         self._pool.submit(worker)
+        return {"ok": True}
+
+    def delete_model(self, model_id: str):
+        """Permanently delete a model's files (spec §3.2 override, user action).
+
+        Unloads it first if it's the resident model (on the MLX worker thread, so
+        any mx.clear_cache runs where the streams live).
+        """
+        if not self._busy.acquire(blocking=False):
+            return {"ok": False, "error": "busy"}
+        try:
+            if self.session.model_id == model_id:
+                self._pool.submit(self.session.unload).result()
+            path = chatcore.delete_model(model_id)
+            print(f"[delete] {model_id} -> {path}")
+        except Exception as exc:  # noqa: BLE001
+            return {"ok": False, "error": str(exc)}
+        finally:
+            self._busy.release()
         return {"ok": True}
 
     # --- conversation ------------------------------------------------------
@@ -213,10 +233,12 @@ class Api:
         if self.window is None:
             return {"ok": False}
         try:
-            if getattr(self.window, "maximized", False):
+            if self._maximized:
                 self.window.restore()
+                self._maximized = False
             else:
                 self.window.maximize()
+                self._maximized = True
         except Exception:  # noqa: BLE001 — maximize support varies
             return {"ok": False}
-        return {"ok": True}
+        return {"ok": True, "maximized": self._maximized}
