@@ -83,10 +83,12 @@ function renderModelMenu() {
     const item = document.createElement('button');
     item.className = 'model-menu__item';
     item.role = 'option';
+    const kind = m.kind || 'mlx';
     item.innerHTML =
       `<span class="model-menu__check">${m.id === currentModelId ? '✓' : ''}</span>` +
       `<span class="model-menu__name">${escapeText(m.label)}` +
-      `<span class="model-menu__id">${escapeText(m.id)}</span></span>`;
+      `<span class="model-menu__id">${escapeText(m.id)}</span></span>` +
+      `<span class="model-kind model-kind--${kind}">${kind.toUpperCase()}</span>`;
     item.addEventListener('click', () => { closeModelMenu(); selectModel(m.id); });
     modelMenu.appendChild(item);
   });
@@ -117,8 +119,10 @@ function renderModelCards() {
   models.forEach((m) => {
     const card = document.createElement('button');
     card.className = 'model-card';
+    const kind = m.kind || 'mlx';
     card.innerHTML =
-      `<div class="model-card__name">${escapeText(m.label)}</div>` +
+      `<div class="model-card__name">${escapeText(m.label)}` +
+      ` <span class="model-kind model-kind--${kind}">${kind.toUpperCase()}</span></div>` +
       `<div class="model-card__id">${escapeText(m.id)}</div>`;
     card.addEventListener('click', () => selectModel(m.id));
     modelCards.appendChild(card);

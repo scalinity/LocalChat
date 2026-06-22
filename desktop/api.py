@@ -138,7 +138,7 @@ class Api:
 
     def send_message(self, text: str):
         """Start generating a reply on a background thread; return its turn_id."""
-        if self.session.model is None:
+        if self.session.backend is None:
             return {"ok": False, "error": "no model loaded"}
         if not self._busy.acquire(blocking=False):
             return {"ok": False, "error": "busy"}
@@ -153,9 +153,9 @@ class Api:
             streamer = _Streamer(self.window, turn_id)
             answer_parts: list[str] = []
             try:
-                for channel, chunk in chatcore.generate(
-                    self.session.model, self.session.tokenizer, messages,
-                    self.session.cache, params, self.session.stop_requested,
+                for channel, chunk in self.session.backend.generate(
+                    messages, self.session.cache, params,
+                    self.session.stop_requested,
                 ):
                     if channel == "answer":
                         answer_parts.append(chunk)

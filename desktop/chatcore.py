@@ -31,6 +31,7 @@ import mlx.core as mx  # noqa: E402
 from mlx_lm.utils import load as _mlx_load  # noqa: E402
 from mlx_lm.generate import stream_generate  # noqa: E402
 from mlx_lm.sample_utils import make_sampler, make_logits_processors  # noqa: E402
+from mlx_lm.models.cache import make_prompt_cache  # noqa: E402
 
 
 # ===========================================================================
@@ -121,12 +122,23 @@ def _derive_label(model_id: str) -> str:
     return model_id.split("/")[-1]
 
 
-def list_models() -> list[dict]:
-    """Return ``[{id, label, path}]`` for every model in ``models/hub``.
+def _gguf_label(path: Path) -> str:
+    return path.stem
 
-    Directory ``models--mlx-community--gemma-4-12B-it-qat-6bit`` maps to id
-    ``mlx-community/gemma-4-12B-it-qat-6bit`` (HF cache naming; the org/name
-    separator is the only ``--`` since model names never contain ``--``).
+
+def list_models() -> list[dict]:
+    """Return ``[{id, label, path, kind}]`` for every local model.
+
+    Two kinds are discovered:
+      - ``mlx``: HF-cache dirs under ``models/hub/models--*``. Directory
+        ``models--mlx-community--gemma-4-12B-it-qat-6bit`` maps to id
+        ``mlx-community/gemma-4-12B-it-qat-6bit`` (the org/name separator is the
+        only ``--`` since model names never contain ``--``). mlx_lm loads these,
+        including plain (non-quantized) HF checkpoints of any of its supported
+        architectures — not just pre-quantized ``mlx-community`` repos.
+      - ``gguf``: ``*.gguf`` files in ``models/gguf/`` or downloaded into the hub
+        (``models--*/snapshots/*/*.gguf``). The file path is the id; loading uses
+        llama.cpp (see ``GGUFBackend``).
     """
     hub = MODELS_DIR / "hub"
     out: list[dict] = []
@@ -138,7 +150,23 @@ def list_models() -> list[dict]:
                     "id": model_id,
                     "label": _derive_label(model_id),
                     "path": str(entry),
+                    "kind": "mlx",
                 })
+
+    gguf_paths: list[Path] = []
+    gdir = MODELS_DIR / "gguf"
+    if gdir.is_dir():
+        gguf_paths += sorted(gdir.glob("*.gguf"))
+    if hub.is_dir():
+        # Bounded glob (snapshots only) so we don't walk the whole 69 GB cache.
+        gguf_paths += sorted(hub.glob("models--*/snapshots/*/*.gguf"))
+    seen: set[str] = set()
+    for p in gguf_paths:
+        rp = str(p.resolve())
+        if rp in seen:
+            continue
+        seen.add(rp)
+        out.append({"id": rp, "label": _gguf_label(p), "path": rp, "kind": "gguf"})
     return out
 
 
@@ -146,15 +174,216 @@ class ModelLoadError(Exception):
     """Raised when a model cannot be loaded (unsupported arch, corrupt cache…)."""
 
 
-def load(model_id: str):
-    """Load ``(model, tokenizer)`` via mlx_lm with the offline cache configured.
+def load(model_id: str) -> "Backend":
+    """Load ``model_id`` and return a ``Backend`` (MLX or GGUF).
 
-    Raises ``ModelLoadError`` (a typed error the UI can surface) on failure.
+    Dispatch is by id: a ``*.gguf`` path uses llama.cpp; anything else is an
+    mlx_lm model id. Raises ``ModelLoadError`` (a typed error the UI surfaces)
+    on failure.
     """
+    if model_id.endswith(".gguf"):
+        return _load_gguf(model_id)
     try:
-        return _mlx_load(model_id)
+        model, tokenizer = _mlx_load(model_id)
     except Exception as exc:  # noqa: BLE001 — surface any load failure uniformly
         raise ModelLoadError(str(exc)) from exc
+    return MLXBackend(model, tokenizer)
+
+
+class Backend:
+    """Common interface so the rest of the app is engine-agnostic."""
+    kind = "?"
+
+    def new_cache(self):
+        """Return a fresh per-chat cache object (or None if the engine self-manages)."""
+        return None
+
+    def generate(self, messages, cache, params, stop_flag=None):
+        """Yield ``(channel, text_chunk)`` events for one assistant turn."""
+        raise NotImplementedError
+
+    def close(self):
+        """Release the model and any device memory."""
+
+
+class MLXBackend(Backend):
+    kind = "mlx"
+
+    def __init__(self, model, tokenizer):
+        self.model = model
+        self.tokenizer = tokenizer
+
+    def new_cache(self):
+        return make_prompt_cache(self.model)
+
+    def generate(self, messages, cache, params, stop_flag=None):
+        yield from generate(self.model, self.tokenizer, messages, cache,
+                            params, stop_flag)
+
+    def close(self):
+        # Drop refs AND clear MLX's Metal buffer cache (spec §7.1) — GC alone
+        # won't return resident memory.
+        self.model = None
+        self.tokenizer = None
+        mx.clear_cache()
+
+
+class GGUFBackend(Backend):
+    kind = "gguf"
+
+    def __init__(self, llm):
+        self.llm = llm
+
+    def new_cache(self):
+        # llama.cpp keeps its own KV cache; reset it so a new chat starts clean.
+        try:
+            self.llm.reset()
+        except Exception:  # noqa: BLE001
+            pass
+        return None
+
+    def generate(self, messages, cache, params, stop_flag=None):
+        yield from _gguf_generate(self.llm, messages, params, stop_flag)
+
+    def close(self):
+        try:
+            self.llm.close()
+        except Exception:  # noqa: BLE001
+            pass
+        self.llm = None
+
+
+def _load_gguf(path: str) -> "GGUFBackend":
+    try:
+        from llama_cpp import Llama
+    except ImportError as exc:
+        raise ModelLoadError(
+            "GGUF models need llama-cpp-python, which isn't installed. "
+            "Install it into the project venv: "
+            "CMAKE_ARGS=\"-DGGML_METAL=on -DGGML_ACCELERATE=off\" "
+            ".venv/bin/pip install llama-cpp-python"
+        ) from exc
+    try:
+        llm = Llama(
+            model_path=path,
+            n_gpu_layers=-1,     # offload all layers to Metal
+            n_ctx=8192,
+            verbose=False,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise ModelLoadError(str(exc)) from exc
+    return GGUFBackend(llm)
+
+
+def _gguf_generate(llm, messages, params, stop_flag=None):
+    """Stream one turn from a llama.cpp model as ``(channel, chunk)`` events.
+
+    Uses the GGUF's embedded chat template via ``create_chat_completion``. The
+    full conversation is passed each turn (llama.cpp reuses its cached prefix);
+    thinking is detected from textual ``<think>…</think>`` tags (the GGUF path
+    has no token-level thinking markers), so non-reasoning models simply stream a
+    plain answer.
+    """
+    p = effective_params(params)
+    kwargs = dict(
+        messages=messages,
+        max_tokens=p["max_tokens"],
+        temperature=p["temperature"],
+        top_p=p["top_p"],
+        top_k=int(p["top_k"]),
+        min_p=p["min_p"],
+        repeat_penalty=p["repetition_penalty"],
+        stream=True,
+    )
+    try:
+        kwargs["seed"] = int(p["seed"])
+        stream = llm.create_chat_completion(**kwargs)
+    except TypeError:
+        kwargs.pop("seed", None)   # older llama_cpp: seed not a per-call arg
+        stream = llm.create_chat_completion(**kwargs)
+
+    splitter = TagThinkingSplitter()
+    for chunk in stream:
+        if stop_flag is not None and stop_flag():
+            break
+        try:
+            delta = chunk["choices"][0]["delta"]
+        except (KeyError, IndexError):
+            continue
+        text = delta.get("content")
+        if not text:
+            continue
+        for ev in splitter.push(text):
+            yield ev
+    for ev in splitter.flush():
+        yield ev
+
+
+def _prefix_hold(buf: str, marker: str) -> int:
+    """Length of the longest suffix of ``buf`` that is a proper prefix of ``marker``.
+
+    Lets the tag splitter hold back just enough trailing text to detect a marker
+    that straddles two streamed chunks, without buffering more than necessary.
+    """
+    for k in range(min(len(marker) - 1, len(buf)), 0, -1):
+        if buf.endswith(marker[:k]):
+            return k
+    return 0
+
+
+class TagThinkingSplitter:
+    """Split a plain-text stream on ``<think>…</think>`` into thinking/answer.
+
+    Used by the GGUF/HF path (no token-level markers). Holds back a short tail so
+    a tag split across chunks is still detected; a model that never emits a
+    ``<think>`` tag just streams everything as the answer.
+    """
+    START = "<think>"
+    END = "</think>"
+
+    def __init__(self):
+        self.state = "normal"
+        self.buf = ""
+
+    def push(self, text: str) -> list:
+        self.buf += text
+        return self._run(flush=False)
+
+    def flush(self) -> list:
+        return self._run(flush=True)
+
+    def _run(self, flush: bool) -> list:
+        events: list = []
+        while True:
+            if self.state == "normal":
+                i = self.buf.find(self.START)
+                if i != -1:
+                    if i > 0:
+                        events.append(("answer", self.buf[:i]))
+                    self.buf = self.buf[i + len(self.START):]
+                    self.state = "reasoning"
+                    continue
+                hold = 0 if flush else _prefix_hold(self.buf, self.START)
+                cut = len(self.buf) - hold
+                if cut > 0:
+                    events.append(("answer", self.buf[:cut]))
+                    self.buf = self.buf[cut:]
+                break
+            else:  # reasoning
+                i = self.buf.find(self.END)
+                if i != -1:
+                    if i > 0:
+                        events.append(("thinking", self.buf[:i]))
+                    self.buf = self.buf[i + len(self.END):]
+                    self.state = "normal"
+                    continue
+                hold = 0 if flush else _prefix_hold(self.buf, self.END)
+                cut = len(self.buf) - hold
+                if cut > 0:
+                    events.append(("thinking", self.buf[:cut]))
+                    self.buf = self.buf[cut:]
+                break
+        return events
 
 
 # ===========================================================================

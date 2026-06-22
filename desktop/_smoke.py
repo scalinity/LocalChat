@@ -14,7 +14,6 @@ the thinking channel, and asserts:
 import sys
 
 import mlx.core as mx
-from mlx_lm.models.cache import make_prompt_cache
 
 import chatcore
 
@@ -40,11 +39,11 @@ def main():
     base = mx.get_active_memory()
     print(f"\nactive memory before load: {base/1e9:.2f} GB")
     print(f"loading {model_id} …")
-    model, tokenizer = chatcore.load(model_id)
+    backend = chatcore.load(model_id)
     after_load = mx.get_active_memory()
-    print(f"active memory after load:  {after_load/1e9:.2f} GB")
+    print(f"active memory after load:  {after_load/1e9:.2f} GB ({backend.kind})")
 
-    cache = make_prompt_cache(model)
+    cache = backend.new_cache()
     history = [{"role": "user",
                 "content": "In one short sentence, what is 6 times 7? Think first."}]
     messages = chatcore.build_messages(history, chatcore.DEFAULT_PARAMS["system_prompt"])
@@ -52,8 +51,7 @@ def main():
     thinking, answer = "", ""
     markers = ("<|channel>", "<channel|>")
     print("\n--- streaming ---")
-    for channel, chunk in chatcore.generate(model, tokenizer, messages, cache,
-                                             chatcore.DEFAULT_PARAMS):
+    for channel, chunk in backend.generate(messages, cache, chatcore.DEFAULT_PARAMS):
         if channel == "thinking":
             thinking += chunk
         else:
@@ -64,14 +62,13 @@ def main():
     leaked = [mk for mk in markers if mk in thinking or mk in answer]
     assert not leaked, f"channel markers leaked: {leaked}"
     assert answer.strip(), "no answer produced"
-    has_think = bool(getattr(tokenizer, "has_thinking", False))
+    has_think = bool(getattr(backend.tokenizer, "has_thinking", False))
     if has_think:
         assert thinking.strip(), "thinking-capable model produced no thinking trace"
 
     # --- RAM release on unload (spec §7.1 / §15.7) ---
     del cache
-    del model, tokenizer
-    mx.clear_cache()
+    backend.close()          # drops refs AND calls mx.clear_cache()
     after_unload = mx.get_active_memory()
     print(f"\nactive memory after unload+clear_cache: {after_unload/1e9:.2f} GB")
     print(f"released {(after_load - after_unload)/1e9:.2f} GB back toward baseline "

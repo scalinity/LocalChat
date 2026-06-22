@@ -23,8 +23,10 @@ model picker and the right-hand buttons to move the window.
 ## What it does
 
 - **Pick a model** (top-left picker or the start screen) — discovered by scanning
-  `models/hub/models--*`. Loading one unloads the previous model and calls
-  `mx.clear_cache()` so RAM returns.
+  `models/hub/models--*` (and `*.gguf` files). Loading one unloads the previous
+  model and calls `mx.clear_cache()` so RAM returns. The picker has a **Rescan
+  models** entry, so models added with the `add` command appear without
+  relaunching.
 - **Chat** multi-turn with a live-streaming answer. The model's hidden *thinking*
   trace streams into a separate, collapsible panel that auto-collapses when the
   answer begins.
@@ -34,6 +36,50 @@ model picker and the right-hand buttons to move the window.
   penalty + window, max tokens, seed, and a system prompt. Changes **auto-save**
   (no Save button) and apply to the next turn. Scope toggle: **This model** vs
   **All models**. "Reset to defaults" clears the chosen scope.
+
+## Models & formats
+
+Add models with the existing command (downloads into `models/`, then **Rescan**
+in the picker):
+
+```bash
+./scripts/add-model.sh <hf-repo-id> ["Display name"]
+```
+
+Three kinds are supported:
+
+- **MLX models** (`mlx-community/...` quantized): the primary, fastest path —
+  run on the Apple GPU via `mlx_lm`.
+- **Regular Hugging Face models** (full-precision Llama, Qwen, Mistral, Phi, …):
+  also run through `mlx_lm`, which supports ~120 architectures and converts HF
+  `safetensors` to MLX at load. No extra setup — drop them in `models/` and pick
+  them. Unsupported architectures surface a clear, non-fatal error.
+- **GGUF** (llama.cpp `.gguf` files): discovered from `models/gguf/*.gguf` or
+  downloaded GGUF repos, run via the `GGUFBackend` (llama-cpp-python).
+
+### GGUF prerequisite (and a current limitation on this machine)
+
+GGUF needs `llama-cpp-python`, installed into the project venv:
+
+```bash
+CMAKE_ARGS="-DGGML_METAL=on -DGGML_ACCELERATE=off" \
+  .venv/bin/pip install llama-cpp-python
+```
+
+> **Known blocker (2026-06):** on this machine that install currently **fails to
+> build**. The Command Line Tools SDK (version 27.0) is missing
+> `CarbonCore/MacErrors.h`, which `Foundation.h` (and the Accelerate framework)
+> transitively include — so llama.cpp's C/Obj-C compiles error out, even CPU-only.
+> This is a system toolchain defect, not an app bug. Unblock it by **updating the
+> Command Line Tools / installing full Xcode** (a complete SDK that ships the
+> header), then run the pip command above. The app's GGUF backend is already in
+> place: GGUF files are listed and, once the library installs, load and stream
+> with no further changes. Until then, loading a `.gguf` shows a clear
+> "install llama-cpp-python" message.
+
+Note: thinking traces for GGUF/HF models are detected from textual
+`<think>…</think>` tags (the token-level marker split is Gemma-specific), so
+non-reasoning models simply stream a plain answer.
 
 ## Where things live
 
