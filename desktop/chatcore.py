@@ -163,10 +163,14 @@ def list_models() -> list[dict]:
         gguf_paths += sorted(hub.glob("models--*/snapshots/*/*.gguf"))
     seen: set[str] = set()
     for p in gguf_paths:
-        rp = str(p.resolve())
-        if rp in seen:
+        # Dedupe by the real file (hub entries are symlinks into blobs/), but
+        # keep the .gguf-named path as the id: resolving to the blob strips the
+        # extension, which would misroute load() to the MLX backend.
+        real = str(p.resolve())
+        if real in seen:
             continue
-        seen.add(rp)
+        seen.add(real)
+        rp = str(p)
         out.append({"id": rp, "label": _gguf_label(p), "path": rp, "kind": "gguf"})
     return out
 
@@ -178,12 +182,23 @@ def delete_model(model_id: str) -> str:
     explicit, user-initiated deletion. Guarded to refuse anything that does not
     resolve to a path strictly inside the models cache.
     """
+    models_root = MODELS_DIR.resolve()
+    hub_root = (MODELS_DIR / "hub").resolve()
     if model_id.endswith(".gguf"):
-        target = Path(model_id)
+        p = Path(model_id)
+        # A hub GGUF id is a snapshot symlink into blobs/. Resolving it would
+        # point at the bare blob, so deleting that leaves the whole models--*
+        # repo dir (and a dangling symlink) behind — the model would keep
+        # showing up. Delete the entire repo dir instead. A standalone file in
+        # models/gguf/ has no models--* ancestor, so we delete the file itself.
+        target = next(
+            (par for par in p.parents
+             if par.parent == hub_root and par.name.startswith("models--")),
+            p,
+        )
     else:
         target = MODELS_DIR / "hub" / ("models--" + model_id.replace("/", "--"))
     target = target.resolve()
-    models_root = MODELS_DIR.resolve()
     if target == models_root or models_root not in target.parents:
         raise ValueError(f"refusing to delete outside the models cache: {target}")
     if not target.exists():
@@ -211,8 +226,44 @@ def load(model_id: str) -> "Backend":
     try:
         model, tokenizer = _mlx_load(model_id)
     except Exception as exc:  # noqa: BLE001 — surface any load failure uniformly
-        raise ModelLoadError(str(exc)) from exc
+        raise ModelLoadError(_friendly_load_error(str(exc))) from exc
+    _ensure_turn_stops(tokenizer)
     return MLXBackend(model, tokenizer)
+
+
+def _friendly_load_error(msg: str) -> str:
+    """Turn a raw mlx_lm load failure into a clear, actionable message."""
+    low = msg.lower()
+    if "diffusion" in low:
+        return ("This is a diffusion (block/denoising) language model — it doesn't "
+                "generate text autoregressively. Local Chat runs autoregressive "
+                "models via mlx_lm/llama.cpp, so this architecture can't run here. "
+                f"({msg.strip()})")
+    if "not supported" in low:
+        return (f"{msg.strip()} This architecture isn't implemented in the "
+                "installed mlx_lm build — try a different model.")
+    return msg
+
+
+# Turn terminators that should stop generation. Gemma 4's harmony-style format
+# ends an assistant turn with ``<turn|>``, and older Gemma builds use
+# ``<end_of_turn>`` — but some converted checkpoints declare only ``<eos>`` as
+# the eos id, so ``stream_generate`` would run past the answer to max_tokens.
+_TURN_STOP_TOKENS = ("<turn|>", "<end_of_turn>")
+
+
+def _ensure_turn_stops(tokenizer) -> None:
+    """Add any present turn terminator to the tokenizer's stop set (in place)."""
+    eos = getattr(tokenizer, "eos_token_ids", None)
+    if eos is None:
+        return
+    try:
+        vocab = tokenizer.get_vocab()
+    except Exception:  # noqa: BLE001
+        return
+    for tok in _TURN_STOP_TOKENS:
+        if tok in vocab:
+            eos.add(vocab[tok])
 
 
 class Backend:
@@ -506,19 +557,23 @@ def build_messages(history: list, system_prompt: str = "") -> list:
     return msgs
 
 
-# Canonical Gemma chat template. Some converted MLX/GGUF checkpoints ship a
-# tokenizer with no ``chat_template`` baked in; transformers then refuses to
-# template at all ("tokenizer.chat_template is not set"). We supply this as the
-# fallback so templating still works fully offline. It has no system role, so
-# callers must merge any system text into the first user turn first.
-GEMMA_CHAT_TEMPLATE = (
-    "{{ bos_token }}{% for message in messages %}"
-    "{% if message['role'] == 'assistant' %}{% set role = 'model' %}"
-    "{% else %}{% set role = message['role'] %}{% endif %}"
-    "{{ '<start_of_turn>' + role + '\n' + (message['content'] | trim) + '<end_of_turn>\n' }}"
-    "{% endfor %}"
-    "{% if add_generation_prompt %}{{ '<start_of_turn>model\n' }}{% endif %}"
-)
+# Some converted checkpoints ship a tokenizer with no ``chat_template`` baked in
+# (notably the gemma-4 base / 26b-a4b MoE conversions, which carry no
+# ``chat_template.jinja``). transformers then refuses to template at all
+# ("tokenizer.chat_template is not set"). We vendor the canonical Gemma 4 chat
+# template (the harmony-style ``<|turn>`` / ``<|channel>`` format these builds
+# were trained on — NOT the old ``<start_of_turn>`` Gemma 1-3 format) and supply
+# it as the fallback so templating still works fully offline. The template
+# handles the system role natively, so no system-merge is needed on this path.
+_FALLBACK_TEMPLATE_PATH = Path(__file__).resolve().parent / "gemma4_chat_template.jinja"
+_fallback_template_cache: str | None = None
+
+
+def _fallback_template() -> str:
+    global _fallback_template_cache
+    if _fallback_template_cache is None:
+        _fallback_template_cache = _FALLBACK_TEMPLATE_PATH.read_text(encoding="utf-8")
+    return _fallback_template_cache
 
 
 def _merge_system(messages: list) -> list:
@@ -538,20 +593,25 @@ def _merge_system(messages: list) -> list:
     return merged
 
 
-def _apply_template(tokenizer, messages):
-    """Apply the chat template, tolerating models without a system role (Gemma).
+def _has_chat_template(tokenizer) -> bool:
+    """True if the tokenizer can template on its own (mlx exposes this directly)."""
+    flag = getattr(tokenizer, "has_chat_template", None)
+    if flag is not None:
+        return bool(flag)
+    return bool(getattr(tokenizer, "chat_template", None))
 
-    Gemma's template has no standalone system role; if it rejects one we merge
-    the system text into the first user turn instead. If the checkpoint ships no
-    template at all, we fall back to the canonical Gemma template (below).
+
+def _apply_template(tokenizer, messages):
+    """Apply the chat template, tolerating models without one or without a system role.
+
+    If the checkpoint ships no template at all we supply the vendored Gemma 4
+    template (``_fallback_template``). Otherwise we use the tokenizer's own
+    template, merging any system text into the first user turn if that template
+    rejects a standalone system role (older Gemma 1-3 builds).
     """
-    if not getattr(tokenizer, "chat_template", None):
-        # No template baked into the checkpoint: use the Gemma fallback, merging
-        # the (unsupported) system role into the first user turn ourselves.
+    if not _has_chat_template(tokenizer):
         return tokenizer.apply_chat_template(
-            _merge_system(messages),
-            add_generation_prompt=True,
-            chat_template=GEMMA_CHAT_TEMPLATE,
+            messages, add_generation_prompt=True, chat_template=_fallback_template()
         )
     try:
         return tokenizer.apply_chat_template(messages, add_generation_prompt=True)
