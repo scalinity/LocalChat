@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; frame-src 'none'; child-src 'none'; worker-src blob:; base-uri 'none'; form-action 'none';">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pricing — CloudSync</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+  :root {
+    --bg: #f4f6fb;
+    --card-bg: #ffffff;
+    --text-primary: #1a1d2e;
+    --text-secondary: #5f6580;
+    --text-muted: #9397ad;
+    --accent: #6c5ce7;
+    --accent-light: #a29bfe;
+    --accent-gradient: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+    --pro-border: #6c5ce7;
+    --pro-bg-tint: rgba(108, 92, 231, 0.04);
+    --success: #00b894;
+    --radius: 20px;
+    --shadow-sm: 0 2px 8px rgba(26,29,46,0.06);
+    --shadow-md: 0 8px 30px rgba(26,29,46,0.10);
+    --shadow-lg: 0 20px 60px rgba(108,92,231,0.15), 0 8px 24px rgba(26,29,46,0.08);
+    --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 24px;
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(108,92,231,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgba(162,155,254,0.08) 0%, transparent 50%);
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 56px;
+    max-width: 560px;
+  }
+
+  .badge-top {
+    display: inline-block;
+    background: rgba(108,92,231,0.1);
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+  }
+
+  .header h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+  }
+
+  .header h1 span {
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .header p {
+    font-size: 1.1rem;
+    line-height: 1.65;
+    color: var(--text-secondary);
+  }
+
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+    max-width: 1080px;
+    width: 100%;
+    align-items: start;
+  }
+
+  @media (max-width: 900px) {
+    .pricing-grid { grid-template-columns: 1fr; max-width: 440px; gap: 24px; }
+  }
+
+  /* ── Card ─────────────────────────────── */
+  .card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 40px 36px 36px;
+    position: relative;
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--transition), box-shadow var(--transition);
+    border: 1.5px solid transparent;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+  }
+
+  /* ── Pro card ─────────────────────────── */
+  .card.pro {
+    border-color: var(--pro-border);
+    background-image: linear-gradient(var(--card-bg), var(--card-bg)) padding-box,
+                      var(--accent-gradient) border-box;
+    border: 2px solid transparent;
+    background-clip: padding-box, border-box;
+    transform: scale(1.04);
+    box-shadow: var(--shadow-lg);
+    z-index: 2;
+  }
+
+  .card.pro:hover {
+    transform: scale(1.04) translateY(-4px);
+    box-shadow: 0 28px 70px rgba(108,92,231,0.2), 0 12px 32px rgba(26,29,46,0.1);
+  }
+
+  @media (max-width: 900px) { .card.pro { transform: scale(1); } .card.pro:hover { transform: translateY(-4px); } }
+
+  /* ── Popular ribbon ───────────────────── */
+  .ribbon {
+    position: absolute;
+    top: -1px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent-gradient);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 6px 22px;
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 4px 14px rgba(108,92,231,0.35);
+  }
+
+  /* ── Plan icon ────────────────────────── */
+  .plan-icon {
+    width: 48px; height: 48px;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem;
+    margin-bottom: 20px;
+    background: rgba(108,92,231,0.08);
+    color: var(--accent);
+  }
+
+  .card.pro .plan-icon {
+    background: var(--accent-gradient);
+    color: #fff;
+  }
+
+  /* ── Plan name & price ────────────────── */
+  .plan-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+
+  .price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+
+  .currency {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    align-self: flex-start;
+    margin-top: 8px;
+  }
+
+  .amount {
+    font-size: 3.4rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    color: var(--text-primary);
+  }
+
+  .card.pro .amount {
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .period {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .plan-desc {
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+    margin-bottom: 28px;
+    min-height: 42px;
+  }
+
+  /* ── Divider ──────────────────────────── */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(108,92,231,0.15), transparent);
+    margin-bottom: 24px;
+  }
+
+  /* ── Features ─────────────────────────── */
+  .features { list-style: none; flex: 1; margin-bottom: 32px; }
+
+  .features li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+
+  .features li + li { border-top: 1px solid rgba(108,92,231,0.06); }
+
+  .check {
+    flex-shrink: 0;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,184,148,0.1);
+    color: var(--success);
+    font-size: 0.7rem;
+  }
+
+  .features li.disabled { color: var(--text-muted); }
+  .features li.disabled .check {
+    background: rgba(147,151,173,0.12);
+    color: var(--text-muted);
+  }
+
+  /* ── CTA Button ───────────────────────── */
+  .cta {
+    display: block;
+    width: 100%;
+    padding: 15px 24px;
+    border-radius: 12px;
+    font-size: 0.92rem;
+    font-weight: 650;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    transition: all var(--transition);
+    letter-spacing: 0.01em;
+  }
+
+  .cta-outline {
+    background: transparent;
+    color: var(--accent);
+    border: 1.5px solid rgba(108,92,231,0.25);
+  }
+
+  .cta-outline:hover {
+    background: rgba(108,92,231,0.06);
+    border-color: var(--accent);
+    box-shadow: 0 4px 16px rgba(108,92,231,0.15);
+  }
+
+  .cta-primary {
+    background: var(--accent-gradient);
+    color: #fff;
+    border: none;
+    box-shadow: 0 6px 24px rgba(108,92,231,0.3);
+  }
+
+  .cta-primary:hover {
+    box-shadow: 0 10px 36px rgba(108,92,231,0.45);
+    transform: translateY(-1px);
+  }
+
+  .cta-dark {
+    background: var(--text-primary);
+    color: #fff;
+    border: none;
+  }
+
+  .cta-dark:hover {
+    background: #2a2d3e;
+    box-shadow: 0 8px 24px rgba(26,29,46,0.25);
+    transform: translateY(-1px);
+  }
+
+  /* ── Footer note ──────────────────────── */
+  .footer-note {
+    margin-top: 48px;
+    text-align: center;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    max-width: 500px;
+  }
+
+  .footer-note a {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .footer-note a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="badge-top">Simple, transparent pricing</div>
+    <h1>Choose the plan<br>that <span>scales with you</span></h1>
+    <p>No hidden fees. No surprises. Start free and upgrade whenever you need more power.</p>
+  </div>
+
+  <div class="pricing-grid">
+
+    <!-- ─── Basic ──────────────────────── -->
+    <div class="card">
+      <div class="plan-icon">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M11 7v4l3 3"/></svg>
+      </div>
+      <div class="plan-name">Basic</div>
+      <div class="price-row">
+        <span class="currency">$</span>
+        <span class="amount">9</span>
+        <span class="period">/ month</span>
+      </div>
+      <p class="plan-desc">Perfect for individuals and small projects getting started.</p>
+      <div class="divider"></div>
+      <ul class="features">
+        <li><span class="check"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 6 5 9 10 3"/></svg></span>Up to 5 projects</li>
+        <li><span class="check"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 6 5 9 10 3"/></svg></span>10 GB cloud storage</li>
+        <li><span class="check"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 6 5 9 10 3"/></svg></span>Basic analytics dashboard</li>
+        <li><span class="check"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 6 5 9 10 3"/></svg></span>Email support (48h response)</li>
+        <li class="disabled"><span class="check"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="3" x2="9" y2="9"/><line x1="9" y1="3" x2="3" y2="9"/></svg></span>Custom integrations</li>
+        <li class="disabled"><span class="check"><svg width

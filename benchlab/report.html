@@ -1,0 +1,576 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>BenchLab — Scorecard</title>
+<style>
+:root{--ink:#0B0E14;--ink2:#0E1119;--panel:#141925;--panel2:#1B2230;--line:#222A39;--line2:#303B4F;
+--text:#EAEEF6;--mut:#94A0B5;--faint:#5C6678;--signal:#3FE0C8;--spot:#F2B254;--plasma:#B58BFF;--pass:#4FD389;--fail:#F26D7D;
+--sans:"SF Pro Display",-apple-system,system-ui,sans-serif;--mono:"SF Mono","JetBrains Mono",ui-monospace,Menlo,monospace;}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(900px 460px at 84% -6%,rgba(63,224,200,.07),transparent 60%),var(--ink);
+color:var(--text);font-family:var(--sans);line-height:1.5;font-feature-settings:"tnum" 1;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:46px 28px 90px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--faint)}
+h1{font-size:clamp(30px,5vw,50px);line-height:1.03;letter-spacing:-.02em;margin:13px 0 0;font-weight:800}
+h1 .g{background:linear-gradient(94deg,var(--signal),var(--plasma));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--mut);margin-top:13px;max-width:60ch;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.chip{font-family:var(--mono);font-size:11px;color:var(--mut);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 11px}
+.chip b{color:var(--text)}
+section{margin-top:44px}
+.sh{display:flex;align-items:baseline;gap:12px;margin-bottom:16px}
+.sh .n{font-family:var(--mono);font-size:12px;color:var(--plasma);letter-spacing:.1em}
+.sh h2{font-size:19px;margin:0;font-weight:700;letter-spacing:-.01em}.sh .hint{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint)}
+.verdict{position:relative;overflow:hidden;border:1px solid rgba(242,178,84,.4);border-radius:20px;
+background:linear-gradient(180deg,rgba(242,178,84,.10),transparent),var(--panel);padding:28px 30px;display:grid;grid-template-columns:auto 1fr auto;gap:24px;align-items:center}
+.vbadge{width:54px;height:54px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:var(--spot);background:rgba(242,178,84,.12);border:1px solid rgba(242,178,84,.4)}
+.crown{font-family:var(--mono);font-size:11px;letter-spacing:.26em;color:var(--spot);text-transform:uppercase}
+.vname{font-size:29px;font-weight:800;letter-spacing:-.02em;margin:6px 0 2px}.vwhy{color:var(--mut);font-size:14px}
+.vsc{text-align:right;font-weight:800}.vsc .big{font-size:56px;line-height:.9;background:linear-gradient(180deg,#fff,var(--spot));-webkit-background-clip:text;background-clip:text;color:transparent}.vsc .of{font-family:var(--mono);color:var(--faint);font-size:13px}
+.lbrow{display:grid;grid-template-columns:74px 1fr 150px 110px;gap:18px;align-items:center;padding:17px 20px;border:1px solid var(--line);border-radius:16px;background:var(--panel);margin-bottom:11px}
+.lbrow.win{border-color:rgba(242,178,84,.45);background:linear-gradient(180deg,rgba(242,178,84,.06),transparent),var(--panel)}
+.rank{text-align:center}.rank .rn{font-size:28px;color:var(--mc);font-weight:800;display:block;line-height:1}.rank .rl{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.16em}
+.nm{font-size:16px;font-weight:700}.tg{font-family:var(--mono);font-size:11px;color:var(--faint);margin:3px 0 10px}
+.track{display:flex;gap:4px}.seg{height:13px;flex:1;border-radius:3px}
+.sc .v{font-size:28px;font-weight:800;letter-spacing:-.02em}.sc .d{font-family:var(--mono);color:var(--faint);font-size:13px}
+.ab{height:5px;border-radius:4px;background:var(--panel2);overflow:hidden;margin-top:6px}.ab i{display:block;height:100%;background:linear-gradient(90deg,var(--signal),var(--plasma))}.al{font-family:var(--mono);font-size:10px;color:var(--mut);margin-top:5px}
+.sp{text-align:right}.spv{font-size:21px;font-weight:800}.spv small{font-family:var(--mono);font-size:10px;color:var(--faint);font-weight:500;margin-left:3px}.spt{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:3px}
+table{width:100%;border-collapse:collapse}.card{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}
+.matrix th,.matrix td{padding:12px 14px;text-align:center;border-bottom:1px solid var(--line)}.matrix thead th{font-family:var(--mono);font-size:11px;color:var(--mut);font-weight:500;background:var(--ink2)}
+.matrix tbody tr:last-child th,.matrix tbody tr:last-child td{border-bottom:none}.cl{text-align:left!important;font-weight:600;font-size:14px}.cl .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:9px}
+.cm{position:relative;display:inline-flex;align-items:center;justify-content:center;min-width:60px;height:33px;border-radius:9px;background:color-mix(in srgb,var(--h) 13%,transparent);border:1px solid color-mix(in srgb,var(--h) 34%,transparent);overflow:hidden}.cm::before{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--p);background:color-mix(in srgb,var(--h) 24%,transparent)}.cm b{position:relative;font-family:var(--mono);font-size:13px}
+.galblock{margin-bottom:22px}.galhead{font-weight:650;font-size:15px;margin-bottom:11px;display:flex;align-items:center;gap:10px}
+.ctag,.ct{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--h);border:1px solid color-mix(in srgb,var(--h) 38%,transparent);background:color-mix(in srgb,var(--h) 12%,transparent);border-radius:999px;padding:3px 8px}
+.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.shot{margin:0}.shotimg{position:relative;border:1px solid var(--line2);border-radius:11px;overflow:hidden;background:#0e0e0e;aspect-ratio:9/6.4}
+.shotimg img{width:100%;height:100%;object-fit:cover;display:block}.shotimg.no{outline:1px solid rgba(242,109,125,.4)}
+.noimg{display:flex;align-items:center;justify-content:center;height:100%;font-family:var(--mono);font-size:11px;color:var(--faint)}
+.badge{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;backdrop-filter:blur(6px)}
+.badge.ok{color:var(--pass);background:rgba(79,211,137,.18)}.badge.no{color:var(--fail);background:rgba(242,109,125,.18)}
+figcaption{font-size:12.5px;font-weight:600;margin-top:8px;display:flex;flex-direction:column}figcaption span{font-family:var(--mono);font-size:10.5px;color:var(--faint);font-weight:400;margin-top:2px}
+.sc2 th,.sc2 td{border-bottom:1px solid var(--line);vertical-align:top;text-align:left}.sc2 thead th{font-family:var(--mono);font-size:11px;color:var(--mut);font-weight:500;padding:12px 14px;background:var(--ink2)}.sc2 tbody tr:last-child th,.sc2 tbody tr:last-child td{border-bottom:none}
+.pt{padding:13px 14px;font-size:13px;font-weight:600;width:200px}.ct{display:block;margin-bottom:4px;width:max-content}
+.cell{padding:10px 12px}.cell details{cursor:pointer}.cell summary{list-style:none;display:flex;align-items:center;gap:9px}.cell summary::-webkit-details-marker{display:none}
+.mk{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none}
+.cell.ok .mk{color:var(--pass);background:rgba(79,211,137,.13);border:1px solid rgba(79,211,137,.3)}.cell.no .mk{color:var(--fail);background:rgba(242,109,125,.1);border:1px solid rgba(242,109,125,.3)}
+.dt{font-family:var(--mono);font-size:11px;color:var(--mut)}.am{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin:8px 0 6px}
+.an{font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--mut);background:var(--ink2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;margin:0}
+.sbar{display:grid;grid-template-columns:180px 1fr;gap:14px;align-items:center;margin-bottom:10px}.sl{font-family:var(--mono);font-size:12px;color:var(--mut)}
+.st{position:relative;height:30px;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;align-items:center}.st i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,rgba(63,224,200,.5),rgba(63,224,200,.16));border-right:2px solid var(--signal)}.st b{position:relative;font-family:var(--mono);font-size:12px;margin-left:12px}
+.tot th,.tot td{padding:11px 14px;border-bottom:1px solid var(--line);text-align:left;font-size:13.5px}.tot thead th{font-family:var(--mono);font-size:11px;color:var(--mut);font-weight:500;background:var(--ink2)}.tot tbody th{font-family:var(--mono);font-size:11px;color:var(--faint);font-weight:500;width:150px}.tot tbody tr:last-child th,.tot tbody tr:last-child td{border-bottom:none}
+footer{margin-top:50px;padding-top:20px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--faint);line-height:1.8}
+@media(max-width:720px){.verdict,.lbrow{grid-template-columns:1fr}}
+</style></head><body><div class="wrap">
+<header><div class="eyebrow">Local Inference · Apple Silicon · Live Bench</div>
+<h1><span class="g">Ornith-1.0-35B-5bit-mlx</span> vs <span class="g">Ornith-1.0-9B-mlx-4Bit</span><br>across twelve graded events.</h1>
+<p class="sub">A computation-heavy battery — executable algorithms, single-file HTML &amp; Three.js generation rendered and graded live, plus hard math, logic and constraints. Greedy decode; every answer machine-checked.</p>
+<div class="chips"><span class="chip"><b>2</b> models</span><span class="chip"><b>12</b> events</span><span class="chip">decode <b>greedy · temp 0</b></span><span class="chip">grading <b>automatic</b></span><span class="chip">2026-06-27</span></div></header>
+
+<section><div class="verdict"><div class="vbadge">♛</div>
+<div><div class="crown">Winner</div><div class="vname">Ornith-1.0-35B-5bit-mlx</div>
+<div class="vwhy">Top score 8/12 · 59.0 tok/s · Dense 5-bit.</div></div>
+<div class="vsc"><div class="big">8</div><div class="of">of 12</div></div></div></section>
+
+<section><div class="sh"><span class="n">01</span><h2>Leaderboard</h2><span class="hint">rank · accuracy · throughput</span></div><div class="lbrow win">
+          <div class="rank" style="--mc:#F2B254"><span class="rn">①</span><span class="rl">1ST</span></div>
+          <div class="who"><div class="nm">Ornith-1.0-35B-5bit-mlx</div>
+            <div class="tg">Dense · 5-bit · 25.2 GB</div><div class="track"><span class="seg" style="background:#5AA9F2" title="Levenshtein distance — pass: all tests pass"></span><span class="seg" style="background:#5AA9F2" title="Longest increasing subseq. — pass: all tests pass"></span><span class="seg" style="background:transparent;box-shadow:inset 0 0 0 1px #F26D7D" title="Spiral matrix order — fail: [1;35mSyntaxError[0m: [35m&#x27;(&#x27; was never closed[0m"></span><span class="seg" style="background:#5AA9F2" title="Evaluate RPN — pass: all tests pass"></span><span class="seg" style="background:transparent;box-shadow:inset 0 0 0 1px #F26D7D" title="Pricing page (design) — fail: missing: 3 tiers, &quot;most popular&quot;, ≥3 CTAs"></span><span class="seg" style="background:#B58BFF" title="Three.js 3D scene — pass: structure ok"></span><span class="seg" style="background:transparent;box-shadow:inset 0 0 0 1px #F26D7D" title="Smallest n: 10^10 | n! — fail: no number found"></span><span class="seg" style="background:#7C82FF" title="Arrangements of MISSISSIPPI — pass: found 34650"></span><span class="seg" style="background:#2FD3C0" title="Knights &amp; knaves — pass: all patterns matched"></span><span class="seg" style="background:#2FD3C0" title="Digit puzzle — pass: found 452"></span><span class="seg" style="background:transparent;box-shadow:inset 0 0 0 1px #F26D7D" title="E-less sentence — fail: no sentence of &gt;= 8 words"></span><span class="seg" style="background:#8FD15A" title="Adversarial letter count — pass: found 10"></span></div></div>
+          <div class="sc"><span class="v">8</span><span class="d">/12</span>
+            <div class="ab"><i style="width:67%"></i></div><div class="al">67% correct</div></div>
+          <div class="sp"><div class="spv">59.0<small>tok/s</small></div>
+            <div class="spt">load 3.4s</div></div></div><div class="lbrow ">
+          <div class="rank" style="--mc:#C4CEE0"><span class="rn">②</span><span class="rl">2ND</span></div>
+          <div class="who"><div class="nm">Ornith-1.0-9B-mlx-4Bit</div>
+            <div class="tg">Dense · 4-bit · 5.0 GB</div><div class="track"><span class="seg" style="background:#5AA9F2" title="Levenshtein distance — pass: all tests pass"></span><span class="seg" style="background:#5AA9F2" title="Longest increasing subseq. — pass: all tests pass"></span><span class="seg" style="background:transparent;box-shadow:inset 0 0 0 1px #F26D7D" title="Spiral matrix order — fail: [1;35mAssertionError[0m"></span><span class="seg" style="background:#5AA9F2" title="Evaluate RPN — pass: all tests pass"></span><span class="seg" style="background:transparent;box-shadow:inset 0 0 0 1px #F26D7D" title="Pricing page (design) — fail: render is blank (nothing painted)"></span><span class="seg" style="background:#B58BFF" title="Three.js 3D scene — pass: structure ok"></span><span class="seg" style="background:transparent;box-shadow:inset 0 0 0 1px #F26D7D" title="Smallest n: 10^10 | n! — fail: last=1 expected=45"></span><span class="seg" style="background:transparent;box-shadow:inset 0 0 0 1px #F26D7D" title="Arrangements of MISSISSIPPI — fail: no number found"></span><span class="seg" style="background:transparent;box-shadow:inset 0 0 0 1px #F26D7D" title="Knights &amp; knaves — fail: missing [&#x27;a\\s*=\\s*knight&#x27;, &#x27;b\\s*=\\s*knave&#x27;]"></span><span class="seg" style="background:transparent;box-shadow:inset 0 0 0 1px #F26D7D" title="Digit puzzle — fail: no number found"></span><span class="seg" style="background:transparent;box-shadow:inset 0 0 0 1px #F26D7D" title="E-less sentence — fail: no sentence of &gt;= 8 words"></span><span class="seg" style="background:transparent;box-shadow:inset 0 0 0 1px #F26D7D" title="Adversarial letter count — fail: last=9 expected=10"></span></div></div>
+          <div class="sc"><span class="v">4</span><span class="d">/12</span>
+            <div class="ab"><i style="width:33%"></i></div><div class="al">33% correct</div></div>
+          <div class="sp"><div class="spv">54.9<small>tok/s</small></div>
+            <div class="spt">load 1.1s</div></div></div></section>
+
+<section><div class="sh"><span class="n">02</span><h2>What they actually built</h2><span class="hint">rendered output of the generation tasks</span></div><div class="galblock"><div class="galhead"><span class="ctag" style="--h:#B58BFF">Frontend</span>Pricing page (design)</div>
+              <div class="shots"><figure class="shot"><div class="shotimg no"><img src="assets/Ornith-1.0-35B-5bit-mlx__pricing.png" alt="" loading="lazy">
+                  <span class="badge no">✗</span></div>
+                  <figcaption>Ornith-1.0-35B-5bit-mlx<span>missing: 3 tiers, &quot;most popular&quot;, ≥3 CTAs</span></figcaption></figure><figure class="shot"><div class="shotimg no"><img src="assets/Ornith-1.0-9B-mlx-4Bit__pricing.png" alt="" loading="lazy">
+                  <span class="badge no">✗</span></div>
+                  <figcaption>Ornith-1.0-9B-mlx-4Bit<span>render is blank (nothing painted)</span></figcaption></figure></div></div><div class="galblock"><div class="galhead"><span class="ctag" style="--h:#B58BFF">Frontend</span>Three.js 3D scene</div>
+              <div class="shots"><figure class="shot"><div class="shotimg ok"><img src="assets/Ornith-1.0-35B-5bit-mlx__threejs.png" alt="" loading="lazy">
+                  <span class="badge ok">✓</span></div>
+                  <figcaption>Ornith-1.0-35B-5bit-mlx<span>structure ok</span></figcaption></figure><figure class="shot"><div class="shotimg ok"><img src="assets/Ornith-1.0-9B-mlx-4Bit__threejs.png" alt="" loading="lazy">
+                  <span class="badge ok">✓</span></div>
+                  <figcaption>Ornith-1.0-9B-mlx-4Bit<span>structure ok</span></figcaption></figure></div></div></section>
+
+<section><div class="sh"><span class="n">03</span><h2>Points by category</h2><span class="hint">passes per category</span></div>
+<table class="matrix card"><thead><tr><th style="text-align:left">Category</th><th>Ornith-1.0-35B-5bit-mlx</th><th>Ornith-1.0-9B-mlx-4Bit</th></tr></thead><tbody><tr><th class="cl"><span class="dot" style="background:#5AA9F2"></span>Coding</th><td><div class="cm" style="--h:#5AA9F2;--p:75%"><b>3/4</b></div></td><td><div class="cm" style="--h:#5AA9F2;--p:75%"><b>3/4</b></div></td></tr><tr><th class="cl"><span class="dot" style="background:#B58BFF"></span>Frontend</th><td><div class="cm" style="--h:#B58BFF;--p:50%"><b>1/2</b></div></td><td><div class="cm" style="--h:#B58BFF;--p:50%"><b>1/2</b></div></td></tr><tr><th class="cl"><span class="dot" style="background:#7C82FF"></span>Math</th><td><div class="cm" style="--h:#7C82FF;--p:50%"><b>1/2</b></div></td><td><div class="cm" style="--h:#7C82FF;--p:0%"><b>0/2</b></div></td></tr><tr><th class="cl"><span class="dot" style="background:#2FD3C0"></span>Logic</th><td><div class="cm" style="--h:#2FD3C0;--p:100%"><b>2/2</b></div></td><td><div class="cm" style="--h:#2FD3C0;--p:0%"><b>0/2</b></div></td></tr><tr><th class="cl"><span class="dot" style="background:#F2A65A"></span>Constraint</th><td><div class="cm" style="--h:#F2A65A;--p:0%"><b>0/1</b></div></td><td><div class="cm" style="--h:#F2A65A;--p:0%"><b>0/1</b></div></td></tr><tr><th class="cl"><span class="dot" style="background:#8FD15A"></span>Counting</th><td><div class="cm" style="--h:#8FD15A;--p:100%"><b>1/1</b></div></td><td><div class="cm" style="--h:#8FD15A;--p:0%"><b>0/1</b></div></td></tr></tbody></table></section>
+
+<section><div class="sh"><span class="n">04</span><h2>Event-by-event</h2><span class="hint">click a cell for the model's answer</span></div>
+<div class="card"><table class="sc2"><thead><tr><th>Prompt</th><th>Ornith-1.0-35B-5bit-mlx</th><th>Ornith-1.0-9B-mlx-4Bit</th></tr></thead><tbody><tr><th class="pt"><span class="ct" style="--h:#5AA9F2">Coding</span>Levenshtein distance</th><td class="cell ok"><details><summary>
+              <span class="mk">✓</span><span class="dt">all tests pass</span></summary>
+              <div class="am">68.1 tok/s · 1825 tok</div><pre class="an">```python
+def min_edit_distance(a: str, b: str) -&gt; int:
+    m, n = len(a), len(b)
+    
+    # dp[i][j] holds the edit distance between a[:i] and b[:j]
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+    
+    # Base cases: transforming to/from an empty string
+    for i in range(m + 1):
+        dp[i][0] = i
+    for j in range(n + 1):
+        dp[0][j] = j
+        
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            if a[i - 1] == b[j - 1]:
+                # Characters match: no extra cost
+                dp[i][j] = dp[i - 1][j - 1]
+            else:
+                # Cost of deletion, insertion, or substitution (all = 1)
+                dp[i][j] = 1 + min(
+                    dp[i - 1][j],      # deletion
+                    dp[i][j - 1],      # insertion
+                    dp[i - 1][j - 1]   # substitution
+                )
+                
+    return dp[m][n]
+```</pre></details></td><td class="cell ok"><details><summary>
+              <span class="mk">✓</span><span class="dt">all tests pass</span></summary>
+              <div class="am">57.0 tok/s · 535 tok</div><pre class="an">```python
+def min_edit_distance(a: str, b: str) -&gt; int:
+    &quot;&quot;&quot;Return the Levenshtein edit distance between strings a and b.
+
+    Each operation (insertion, deletion, or substitution) costs 1.
+    Uses dynamic programming with O(len(a) * len(b)) time and space.
+    &quot;&quot;&quot;
+    m, n = len(a), len(b)
+
+    # dp[i][j] = edit distance between a[:i] and b[:j]
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+
+    # Base cases: transforming to/from an empty string
+    for i in range(m + 1):
+        dp[i][0] = i   # delete all characters from a[:i]
+    for j in range(n + 1):
+        dp[0][j] = j   # insert all characters into b[:j]
+
+    # Fill the DP table
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            if a[i - 1] == b[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1]           # no change needed
+            else:
+                dp[i][j] = 1 + min(
+                    dp[i - 1][j],    # deletion from a
+                    dp[i][j - 1],    # insertion into b
+                    dp[i - 1][j - 1] # substitution
+                )
+
+    return dp[m][n]
+```</pre></details></td></tr><tr><th class="pt"><span class="ct" style="--h:#5AA9F2">Coding</span>Longest increasing subseq.</th><td class="cell ok"><details><summary>
+              <span class="mk">✓</span><span class="dt">all tests pass</span></summary>
+              <div class="am">68.2 tok/s · 1640 tok</div><pre class="an">```python
+import bisect
+
+def lis_length(nums):
+    tails = []
+    for x in nums:
+        idx = bisect.bisect_left(tails, x)
+        if idx == len(tails):
+            tails.append(x)
+        else:
+            tails[idx] = x
+    return len(tails)
+```</pre></details></td><td class="cell ok"><details><summary>
+              <span class="mk">✓</span><span class="dt">all tests pass</span></summary>
+              <div class="am">57.0 tok/s · 268 tok</div><pre class="an">```python
+def lis_length(nums):
+    &quot;&quot;&quot;Return the length of the longest strictly increasing subsequence in nums.&quot;&quot;&quot;
+    if not nums:
+        return 0
+
+    # tails[i] = smallest tail element for an increasing subsequence of length i+1
+    tails = []
+
+    import bisect
+    for num in nums:
+        idx = bisect.bisect_left(tails, num)
+        if idx == len(tails):
+            tails.append(num)
+        else:
+            tails[idx] = num
+
+    return len(tails)
+```</pre></details></td></tr><tr><th class="pt"><span class="ct" style="--h:#5AA9F2">Coding</span>Spiral matrix order</th><td class="cell no"><details><summary>
+              <span class="mk">✗</span><span class="dt">[1;35mSyntaxError[0m: [35m&#x27;(&#x27; was never closed[0m</span></summary>
+              <div class="am">68.1 tok/s · 2560 tok</div><pre class="an">```python
+def spiral_order(matrix):
+    if not matrix or not matrix[0]:
+        return []
+    
+    result = []
+    top, bottom = 0, len(matrix) - 1
+    left, right = 0, len(matrix[0]) - 1
+    
+    while top &lt;= bottom and left &lt;= right:
+        # Traverse top row (left → right)
+        for i in range(left, right + 1):
+            result.append(matrix[top][i])
+        top += 1
+        
+        # Traverse right column (top → bottom)
+        for i in range(top, bottom + 1):
+            result.append(matrix[i][right])
+        right -= 1
+        
+        # Traverse bottom row (right → left)
+        if top &lt;= bottom:
+            for i in range(right, left - 1, -1</pre></details></td><td class="cell no"><details><summary>
+              <span class="mk">✗</span><span class="dt">[1;35mAssertionError[0m</span></summary>
+              <div class="am">56.1 tok/s · 1185 tok</div><pre class="an">```python
+def spiral_order(matrix):
+    &quot;&quot;&quot;Return the elements of a 2D matrix in clockwise spiral order starting from top-left.&quot;&quot;&quot;
+    if not matrix or not matrix[0]:
+        return []
+
+    result = []
+    top, bottom = 0, len(matrix) - 1
+    left, right = 0, len(matrix[0]) - 1
+
+    while top &lt;= bottom and left &lt;= right:
+        # Traverse the top row from left to right
+        for i in range(left, right + 1):
+            result.append(matrix[top][i])
+        top += 1
+
+        # Traverse the right column from top to bottom
+        for i in range(top, bottom + 1):
+            result.append(matrix[i][right])
+        right -= 1
+
+        # Traverse the bottom row from right to left (if still valid)
+        if top &lt;= bottom:
+            for i in range(right, left - 1, -1):
+                result.append(matrix[bottom][i])
+            bottom -= 1
+
+        # Traverse the left column from bottom to top (if still valid)
+        if left &lt;= right:
+            for i in range(bottom, left - 1, -1):
+                result.append(matrix[i][left])
+            left += 1
+
+    return result
+```</pre></details></td></tr><tr><th class="pt"><span class="ct" style="--h:#5AA9F2">Coding</span>Evaluate RPN</th><td class="cell ok"><details><summary>
+              <span class="mk">✓</span><span class="dt">all tests pass</span></summary>
+              <div class="am">68.8 tok/s · 1717 tok</div><pre class="an">```python
+def eval_rpn(tokens):
+    stack = []
+    for token in tokens:
+        if token == &#x27;+&#x27;:
+            b, a = stack.pop(), stack.pop()
+            stack.append(a + b)
+        elif token == &#x27;-&#x27;:
+            b, a = stack.pop(), stack.pop()
+            stack.append(a - b)
+        elif token == &#x27;*&#x27;:
+            b, a = stack.pop(), stack.pop()
+            stack.append(a * b)
+        elif token == &#x27;/&#x27;:
+            b, a = stack.pop(), stack.pop()
+            # int() truncates toward zero, unlike // which floors
+            stack.append(int(a / b))
+        else:
+            stack.append(int(token))
+    return stack[0]
+```</pre></details></td><td class="cell ok"><details><summary>
+              <span class="mk">✓</span><span class="dt">all tests pass</span></summary>
+              <div class="am">54.6 tok/s · 997 tok</div><pre class="an">```python
+def eval_rpn(tokens):
+    stack = []
+
+    for token in tokens:
+        if token in (&#x27;+&#x27;, &#x27;-&#x27;, &#x27;*&#x27;, &#x27;/&#x27;):
+            b = stack.pop()
+            a = stack.pop()
+
+            if token == &#x27;+&#x27;:
+                stack.append(a + b)
+            elif token == &#x27;-&#x27;:
+                stack.append(a - b)
+            elif token == &#x27;*&#x27;:
+                stack.append(a * b)
+            elif token == &#x27;/&#x27;:
+                # Truncate toward zero (not floor division)
+                result = int(a / b)
+                stack.append(result)
+        else:
+            stack.append(int(token))
+
+    return stack[0]
+```</pre></details></td></tr><tr><th class="pt"><span class="ct" style="--h:#B58BFF">Frontend</span>Pricing page (design)</th><td class="cell no"><details><summary>
+              <span class="mk">✗</span><span class="dt">missing: 3 tiers, &quot;most popular&quot;, ≥3 CTAs</span></summary>
+              <div class="am">66.5 tok/s · 4096 tok</div><pre class="an">```html
+&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;UTF-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+&lt;title&gt;Pricing — CloudSync&lt;/title&gt;
+&lt;style&gt;
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+  :root {
+    --bg: #f4f6fb;
+    --card-bg: #ffffff;
+    --text-primary: #1a1d2e;
+    --text-secondary: #5f6580;
+    --text-muted: #9397ad;
+    --accent: #6c5ce7;
+    --accent-light: #a29bfe;
+    --accent-gradient: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+    --pro-border: #6c5ce7;
+    --pro-bg-tint: rgba(108, 92, 231, 0.04);
+    --success: #00b894;
+    --radius: 20px;
+    --shadow-sm: 0 2px 8px rgba(26,29,46,0.06);
+    --shadow-md: 0 8px 30px rgba(26,29,46,0.10);
+    --shadow-lg: 0 20px 60px rgba(108,92,231,0.15), 0 8px 24px rgba(26,29,46,0.08);
+    --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 24px;
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(108,92,231,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% </pre></details></td><td class="cell no"><details><summary>
+              <span class="mk">✗</span><span class="dt">render is blank (nothing painted)</span></summary>
+              <div class="am">55.2 tok/s · 4096 tok</div><pre class="an">```html
+&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot; /&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot; /&gt;
+&lt;title&gt;SaaS Pricing&lt;/title&gt;
+&lt;style&gt;
+  /* --- RESET &amp; BASE STYLES --- */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --primary: #4f46e5;       /* Indigo */
+    --primary-hover: #4338ca;
+    --secondary: #ec4899;     /* Pink accent for badges */
+    --bg-body: #f8fafc;      /* Light slate background */
+    --text-main: #0f172a;    /* Near black */
+    --text-muted: #64748b;   /* Medium gray */
+    --border-color: #e2e8f0; /* Subtle border */
+    --white: #ffffff;
+    --radius-card: 16px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+    --shadow-lg: 0 10px 30px -5px rgba(79, 70, 229, 0.15);
+    --font-stack: -apple-system, BlinkMacSystemFont, &#x27;Segoe UI&#x27;, Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  body {
+    font-family: var(--font-stack);
+    background-color: var(--bg-body);
+    color: var(--text-main);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* --- LAYOUT CONTAINER --- */
+  .container {
+    width: 100%;
+    max-width: 1200px;
+    padding: 60px 24px;
+    display: flex;
+    flex-directi</pre></details></td></tr><tr><th class="pt"><span class="ct" style="--h:#B58BFF">Frontend</span>Three.js 3D scene</th><td class="cell ok"><details><summary>
+              <span class="mk">✓</span><span class="dt">structure ok</span></summary>
+              <div class="am">68.7 tok/s · 2605 tok</div><pre class="an">```html
+&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;UTF-8&quot;&gt;
+&lt;title&gt;Three.js Animated 3D Scene&lt;/title&gt;
+&lt;style&gt;
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { overflow: hidden; background: #000; }
+canvas { display: block; }
+#info {
+position: absolute; top: 12px; left: 12px;
+color: #fff; font-family: &#x27;Segoe UI&#x27;, Arial, sans-serif;
+font-size: 13px; background: rgba(0,0,0,0.5);
+padding: 8px 14px; border-radius: 6px;
+pointer-events: none; line-height: 1.5;
+}
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+
+&lt;div id=&quot;info&quot;&gt;🖱️ Drag to orbit &amp;nbsp;|&amp;nbsp; Scroll to zoom &amp;nbsp;|&amp;nbsp; Right-drag to pan&lt;/div&gt;
+
+&lt;script src=&quot;https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js&quot;&gt;&lt;/script&gt;
+
+&lt;script&gt;
+(function () {
+  // ── Scene, Camera, Renderer ────────────────────────────────
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x0a0a1a, 0.035);
+
+  const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 200);
+  camera.position.set(4, 3, 6);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMap</pre></details></td><td class="cell ok"><details><summary>
+              <span class="mk">✓</span><span class="dt">structure ok</span></summary>
+              <div class="am">55.7 tok/s · 2394 tok</div><pre class="an">```html
+&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;title&gt;Three.js Interactive 3D Scene&lt;/title&gt;
+    &lt;style&gt;
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #111118; /* Dark deep blue-black */
+            font-family: sans-serif;
+        }
+        canvas {
+            display: block; /* Removes scrollbars from inline elements */
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+
+&lt;!-- Load Three.js via a single classic script tag (CDN) --&gt;
+&lt;script src=&quot;https://unpkg.com/three@0.160.0/build/three.min.js&quot;&gt;&lt;/script&gt;
+
+&lt;script&gt;
+    // --- 1. SCENE SETUP ---
+    
+    // Create the scene, camera, and renderer
+    const scene = new THREE.Scene();
+    
+    // PerspectiveCamera: fov=75, aspect ratio based on window, near=0.1, far=100
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.z = 5;
+
+    // WebGLRenderer: antialias=true for smooth edges
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio on high-DPI screens
+    document.body.appendChild(renderer.domElement);
+
+    // --- 2. LIGHTING ---
+    
+    // Ambient light for base visibility
+    const ambientLight = new THRE</pre></details></td></tr><tr><th class="pt"><span class="ct" style="--h:#7C82FF">Math</span>Smallest n: 10^10 | n!</th><td class="cell no"><details><summary>
+              <span class="mk">✗</span><span class="dt">no number found</span></summary>
+              <div class="am">44.1 tok/s · 2560 tok</div><pre class="an">(no answer)</pre></details></td><td class="cell no"><details><summary>
+              <span class="mk">✗</span><span class="dt">last=1 expected=45</span></summary>
+              <div class="am">55.2 tok/s · 2560 tok</div><pre class="an">To find the smallest positive integer $n$ such that $n!$ is divisible by $10^{10}$, we must determine when the prime factorization of $n!$ contains at least ten factors of both 2 and 5 (since $10 = 2 \times 5$, so $10^{10} = 2^{10} \times 5^{10}$).
+
+In any factorial $n!$, the number of factors of 2 is always greater than or equal to the number of factors of 5 (because every even number contributes a factor of 2, but only multiples of 5 contribute a factor of 5). Therefore, the limiting condition is that the exponent of 5 in the prime factorization of $n!$ must be at least 10.
+
+We use **Legendre&#x27;s Formula** to find the exponent of a prime $p$ in $n!$:
+$$E_p(n!) = \sum_{k=1}^{\infty} \left\lfloor \frac{n}{p^k} \right</pre></details></td></tr><tr><th class="pt"><span class="ct" style="--h:#7C82FF">Math</span>Arrangements of MISSISSIPPI</th><td class="cell ok"><details><summary>
+              <span class="mk">✓</span><span class="dt">found 34650</span></summary>
+              <div class="am">50.9 tok/s · 2494 tok</div><pre class="an">To find the number of distinct arrangements of the letters in &quot;MISSISSIPPI,&quot; we use the formula for permutations of a multiset (a set with repeated elements).
+
+**1. Count the total letters and the frequency of each letter:**
+The word **MISSISSIPPI** has 11 letters in total ($n = 11$).
+*   **M**: 1
+*   **I**: 4
+*   **S**: 4
+*   **P**: 2
+
+**2. Apply the formula:**
+$$ \frac{n!}{n_1! \cdot n_2! \cdot ...} $$
+
+Substituting our values:
+$$ \frac{11!}{1! \cdot 4! \cdot 4! \cdot 2!} $$
+
+**3. Calculate the factorials:**
+*   $11! = 39,916,800$
+*   $4! = 24$
+*   $2! = 2$
+*   $1! = 1$
+
+$$ \frac{39,916,800}{1 \cdot 24 \cdot 24 \cdot 2} $$
+$$ \frac{39,916,800}{1,152} $$
+
+**4. Final Result:**
+$$ 34,650 $$
+
+There are **34,650** distinct arrangements.</pre></details></td><td class="cell no"><details><summary>
+              <span class="mk">✗</span><span class="dt">no number found</span></summary>
+              <div class="am">54.7 tok/s · 2560 tok</div><pre class="an">(no answer)</pre></details></td></tr><tr><th class="pt"><span class="ct" style="--h:#2FD3C0">Logic</span>Knights &amp; knaves</th><td class="cell ok"><details><summary>
+              <span class="mk">✓</span><span class="dt">all patterns matched</span></summary>
+              <div class="am">40.6 tok/s · 1469 tok</div><pre class="an">Let&#x27;s analyze the statements using formal logic:
+
+- Let `A` be true if A is a knight, false if A is a knave.
+- Let `B` be true if B is a knight, false if B is a knave.
+- Knights always make true statements; knaves always make false ones. Therefore, a person&#x27;s type matches the truth value of their statement.
+
+**A&#x27;s statement:** &quot;B is a knave.&quot;
+This means: `A ↔ ¬B`
+
+**B&#x27;s statement:** &quot;Neither A nor B is a knave&quot; (i.e., both are knights).
+This means: `B ↔ (A ∧ B)`
+
+Now, test the possibilities:
+1. **If A is a knight:** His statement is true → B is a knave. If B is a knave, his statement must be false. B claims both are knights, but since B is actually a knave, that claim is indeed false. This is fully consistent. ✅
+2. **If A is a knave:** His statement is false → B is actually a knight. But if B is a knight, his statement must be true, meaning neither is a knave. This contradicts our assumption that A is a knave. ❌
+
+Thus, the only consistent scenario is that A is a knight and B is a knave.
+
+A=knight, B=knave.</pre></details></td><td class="cell no"><details><summary>
+              <span class="mk">✗</span><span class="dt">missing [&#x27;a\\s*=\\s*knight&#x27;, &#x27;b\\s*=\\s*knave&#x27;]</span></summary>
+              <div class="am">51.7 tok/s · 2560 tok</div><pre class="an">(no answer)</pre></details></td></tr><tr><th class="pt"><span class="ct" style="--h:#2FD3C0">Logic</span>Digit puzzle</th><td class="cell ok"><details><summary>
+              <span class="mk">✓</span><span class="dt">found 452</span></summary>
+              <div class="am">42.0 tok/s · 1410 tok</div><pre class="an">The number is **452**. 
+
+**Verification:**
+- Digits: hundreds = 4, tens = 5, units = 2
+- Sum: 4 + 5 + 2 = 11 ✓
+- Hundreds digit (4) is twice the units digit (2) ✓
+- Tens digit (5) is three more than the units digit (2) ✓
+- Ends in 2, so it&#x27;s even ✓</pre></details></td><td class="cell no"><details><summary>
+              <span class="mk">✗</span><span class="dt">no number found</span></summary>
+              <div class="am">52.7 tok/s · 2560 tok</div><pre class="an">(no answer)</pre></details></td></tr><tr><th class="pt"><span class="ct" style="--h:#F2A65A">Constraint</span>E-less sentence</th><td class="cell no"><details><summary>
+              <span class="mk">✗</span><span class="dt">no sentence of &gt;= 8 words</span></summary>
+              <div class="am">56.8 tok/s · 2560 tok</div><pre class="an">(no answer)</pre></details></td><td class="cell no"><details><summary>
+              <span class="mk">✗</span><span class="dt">no sentence of &gt;= 8 words</span></summary>
+              <div class="am">53.9 tok/s · 2560 tok</div><pre class="an">(no answer)</pre></details></td></tr><tr><th class="pt"><span class="ct" style="--h:#8FD15A">Counting</span>Adversarial letter count</th><td class="cell ok"><details><summary>
+              <span class="mk">✓</span><span class="dt">found 10</span></summary>
+              <div class="am">65.4 tok/s · 993 tok</div><pre class="an">10</pre></details></td><td class="cell no"><details><summary>
+              <span class="mk">✗</span><span class="dt">last=9 expected=10</span></summary>
+              <div class="am">55.4 tok/s · 1161 tok</div><pre class="an">9</pre></details></td></tr></tbody></table></div></section>
+
+<section><div class="sh"><span class="n">05</span><h2>Throughput</h2><span class="hint">avg generation speed</span></div><div class="sbar"><div class="sl">Ornith-1.0-35B-5bit-mlx</div>
+          <div class="st"><i style="width:100%"></i><b>59.0 tok/s</b></div></div><div class="sbar"><div class="sl">Ornith-1.0-9B-mlx-4Bit</div>
+          <div class="st"><i style="width:93%"></i><b>54.9 tok/s</b></div></div></section>
+
+<section><div class="sh"><span class="n">06</span><h2>Tale of the tape</h2></div>
+<div class="card"><table class="tot"><thead><tr><th>Spec</th><th>Ornith-1.0-35B-5bit-mlx</th><th>Ornith-1.0-9B-mlx-4Bit</th></tr></thead><tbody><tr><th>Architecture</th><td>Dense</td><td>Dense</td></tr><tr><th>Quantization</th><td>5-bit</td><td>4-bit</td></tr><tr><th>Weights on disk</th><td>25.2 GB</td><td>5.0 GB</td></tr></tbody></table></div></section>
+
+<footer>METHOD · 12 prompts: executable coding (run against hidden tests), single-file HTML/Three.js (rendered in a sandboxed iframe; checked for required structure, a live non-blank canvas, and zero JS errors), hard math, logic, constraints. Greedy decode (temp 0, seed 0).<br>Generated by BenchLab · 2026-06-27.</footer>
+</div></body></html>

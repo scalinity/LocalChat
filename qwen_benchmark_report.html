@@ -1,0 +1,628 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Qwen Local Benchmark — Scorecard</title>
+<style>
+:root{
+ --ink:#0F1218; --ink2:#10141d; --panel:#171C27; --panel2:#1E2533; --line:#293143; --line2:#39435a;
+ --text:#ECEFF6; --text2:#9AA4BA; --text3:#646F87;
+ --gold:#E8B05A; --teal:#3FD0C0; --violet:#8E7BF4; --pass:#56D98A; --fail:#EF6B82;
+ --sans:"SF Pro Display",-apple-system,system-ui,"Segoe UI",Helvetica,Arial,sans-serif;
+ --mono:"SF Mono","JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:
+   radial-gradient(1100px 520px at 78% -8%, rgba(142,123,244,.10), transparent 60%),
+   radial-gradient(900px 480px at 8% 4%, rgba(63,208,192,.07), transparent 55%),
+   var(--ink);
+ color:var(--text);font-family:var(--sans);line-height:1.5;
+ font-feature-settings:"tnum" 1,"cv01" 1; -webkit-font-smoothing:antialiased;}
+.wrap{max-width:1080px;margin:0 auto;padding:48px 28px 96px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--text3);}
+h1{font-size:clamp(30px,5vw,52px);line-height:1.02;letter-spacing:-.02em;margin:14px 0 0;font-weight:800;}
+h1 .q{background:linear-gradient(94deg,var(--teal),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent;}
+.sub{color:var(--text2);margin-top:14px;max-width:62ch;font-size:15px}
+.meta-strip{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.chip{font-family:var(--mono);font-size:11px;color:var(--text2);background:var(--panel);
+  border:1px solid var(--line);border-radius:999px;padding:5px 11px;letter-spacing:.02em}
+.chip b{color:var(--text)}
+
+section{margin-top:46px}
+.sechead{display:flex;align-items:baseline;gap:12px;margin-bottom:18px}
+.sechead .n{font-family:var(--mono);font-size:12px;color:var(--violet);letter-spacing:.1em}
+.sechead h2{font-size:19px;margin:0;font-weight:700;letter-spacing:-.01em}
+.sechead .hint{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text3)}
+
+/* hero verdict */
+.verdict{position:relative;overflow:hidden;border:1px solid var(--line2);border-radius:20px;
+  background:linear-gradient(180deg,rgba(232,176,90,.10),rgba(232,176,90,.02)) , var(--panel);
+  padding:30px 30px;display:grid;grid-template-columns:auto 1fr auto;gap:26px;align-items:center}
+.verdict::before{content:"";position:absolute;inset:0;background:radial-gradient(420px 180px at 88% 0%,rgba(232,176,90,.18),transparent 70%);pointer-events:none}
+.crown{font-family:var(--mono);font-size:11px;letter-spacing:.28em;color:var(--gold);text-transform:uppercase}
+.vname{font-size:30px;font-weight:800;letter-spacing:-.02em;margin:6px 0 2px}
+.vwhy{color:var(--text2);font-size:14px;max-width:48ch}
+.vscore{text-align:right;font-weight:800;letter-spacing:-.03em}
+.vscore .big{font-size:58px;line-height:.9;background:linear-gradient(180deg,#fff,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.vscore .of{font-family:var(--mono);color:var(--text3);font-size:14px}
+.vbadge{display:inline-flex;align-items:center;justify-content:center;width:54px;height:54px;border-radius:14px;
+  background:rgba(232,176,90,.12);border:1px solid rgba(232,176,90,.4);color:var(--gold);font-size:26px;font-weight:800}
+
+/* leaderboard */
+.lbrow{display:grid;grid-template-columns:78px 1fr 150px 120px;gap:18px;align-items:center;
+  padding:18px 20px;border:1px solid var(--line);border-radius:16px;background:var(--panel);margin-bottom:12px}
+.lbrow.win{border-color:rgba(232,176,90,.45);background:linear-gradient(180deg,rgba(232,176,90,.06),transparent),var(--panel)}
+.rank{text-align:center}
+.rank .rnum{font-size:30px;color:var(--mc);font-weight:800;display:block;line-height:1}
+.rank .rlab{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.18em}
+.mname{font-size:17px;font-weight:700;letter-spacing:-.01em}
+.mtag{font-family:var(--mono);font-size:11px;color:var(--text3);margin:3px 0 11px}
+.track{display:flex;gap:4px}
+.seg{height:13px;flex:1;border-radius:3px;box-shadow:0 0 10px -2px currentColor}
+.score .sv{font-size:30px;font-weight:800;letter-spacing:-.02em}
+.score .sd{font-family:var(--mono);color:var(--text3);font-size:14px}
+.accbar{height:6px;border-radius:4px;background:var(--panel2);overflow:hidden;margin-top:6px}
+.accbar i{display:block;height:100%;background:linear-gradient(90deg,var(--teal),var(--violet))}
+.acclab{font-family:var(--mono);font-size:10.5px;color:var(--text2);margin-top:5px}
+.spd{text-align:right}
+.spv{font-size:23px;font-weight:800;letter-spacing:-.02em}
+.spv small{font-family:var(--mono);font-size:11px;color:var(--text3);font-weight:500;margin-left:4px}
+.spt{font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:3px}
+
+/* category matrix */
+table{width:100%;border-collapse:collapse}
+.matrix{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}
+.matrix th,.matrix td{padding:13px 14px;text-align:center;border-bottom:1px solid var(--line)}
+.matrix thead th{font-family:var(--mono);font-size:11px;color:var(--text2);font-weight:500;letter-spacing:.02em;background:var(--ink2)}
+.matrix tbody tr:last-child th,.matrix tbody tr:last-child td{border-bottom:none}
+.catlab{text-align:left!important;font-weight:600;font-size:14px}
+.catlab .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:9px;vertical-align:middle}
+.cmat{position:relative;display:inline-flex;align-items:center;justify-content:center;min-width:62px;height:34px;border-radius:9px;
+  background:color-mix(in srgb,var(--h) 14%, transparent);border:1px solid color-mix(in srgb,var(--h) 35%, transparent);overflow:hidden}
+.cmat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--p);background:color-mix(in srgb,var(--h) 26%, transparent)}
+.cmat b{position:relative;font-family:var(--mono);font-size:13px}
+
+/* per-prompt scorecard */
+.card{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}
+.sc th,.sc td{border-bottom:1px solid var(--line);vertical-align:top;text-align:left}
+.sc thead th{font-family:var(--mono);font-size:11px;color:var(--text2);font-weight:500;padding:12px 14px;background:var(--ink2)}
+.sc tbody tr:last-child th,.sc tbody tr:last-child td{border-bottom:none}
+.ptitle{padding:13px 14px;font-size:13.5px;font-weight:600;width:230px}
+.ctag{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--h);margin-bottom:4px}
+.cell{padding:11px 12px;width:auto}
+.cell details{cursor:pointer}
+.cell summary{list-style:none;display:flex;align-items:center;gap:9px}
+.cell summary::-webkit-details-marker{display:none}
+.mk{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;font-size:13px;font-weight:800;flex:none}
+.cell.ok .mk{color:var(--pass);background:rgba(86,217,138,.13);border:1px solid rgba(86,217,138,.32)}
+.cell.no .mk{color:var(--fail);background:rgba(239,107,130,.10);border:1px solid rgba(239,107,130,.30)}
+.dt{font-family:var(--mono);font-size:11px;color:var(--text2)}
+.ansmeta{font-family:var(--mono);font-size:10.5px;color:var(--text3);margin:9px 0 6px}
+.ans{font-family:var(--mono);font-size:11.5px;line-height:1.5;color:var(--text2);background:var(--ink2);
+  border:1px solid var(--line);border-radius:9px;padding:10px 12px;white-space:pre-wrap;word-break:break-word;max-height:280px;overflow:auto;margin:0}
+
+/* speed */
+.sbar{display:grid;grid-template-columns:190px 1fr;gap:16px;align-items:center;margin-bottom:11px}
+.sl{font-family:var(--mono);font-size:12px;color:var(--text2)}
+.strack{position:relative;height:30px;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;align-items:center}
+.strack i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,rgba(63,208,192,.55),rgba(63,208,192,.18));border-right:2px solid var(--teal)}
+.strack b{position:relative;font-family:var(--mono);font-size:12px;margin-left:12px;color:var(--text)}
+
+/* tale of tape */
+.tot th,.tot td{padding:11px 14px;border-bottom:1px solid var(--line);text-align:left;font-size:13.5px}
+.tot thead th{font-family:var(--mono);font-size:11px;color:var(--text2);font-weight:500;background:var(--ink2)}
+.tot tbody th{font-family:var(--mono);font-size:11.5px;color:var(--text3);font-weight:500;width:160px}
+.tot tbody tr:last-child th,.tot tbody tr:last-child td{border-bottom:none}
+
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;font-family:var(--mono);font-size:11px;color:var(--text2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+footer{margin-top:54px;padding-top:22px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11.5px;color:var(--text3);line-height:1.8}
+a{color:var(--teal);text-decoration:none}
+@media (max-width:720px){
+ .verdict{grid-template-columns:1fr;text-align:left} .vscore{text-align:left}
+ .lbrow{grid-template-columns:54px 1fr;gap:12px} .score,.spd{grid-column:2;text-align:left}
+ .sbar{grid-template-columns:1fr} .ptitle{width:auto}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style></head>
+<body><div class="wrap">
+
+<header>
+ <div class="eyebrow">Local Inference · Apple Silicon · Head-to-Head</div>
+ <h1>Three <span class="q">Qwen</span> quantizations,<br>twelve graded events.</h1>
+ <p class="sub">An objective scorecard run entirely offline through the local MLX stack. Every prompt has a
+ machine-checkable answer — numeric, executable code, or a strict format rule — so the ranking is earned by
+ the graders, not decided by taste.</p>
+ <div class="meta-strip">
+   <span class="chip">Decoding <b>greedy · temp 0</b></span>
+   <span class="chip">Max tokens <b>2560</b></span>
+   <span class="chip"><b>12</b> prompts · 6 categories</span>
+   <span class="chip">Grading <b>automatic</b></span>
+   <span class="chip">Hardware <b>M-series · 51.5 GB</b></span>
+   <span class="chip">2026-06-25</span>
+ </div>
+</header>
+
+<section>
+ <div class="verdict">
+   <div class="vbadge">♛</div>
+   <div>
+     <div class="crown">Winner · best accuracy</div>
+     <div class="vname">Qwen3.6-35B-A3B</div>
+     <div class="vwhy">Top accuracy at 12/12, at 74.2 tok/s. The moe 35B-A3B · OptiQ 4-bit build.</div>
+   </div>
+   <div class="vscore"><div class="big">12</div><div class="of">of 12 correct</div></div>
+ </div>
+</section>
+
+<section>
+ <div class="sechead"><span class="n">01</span><h2>Leaderboard</h2><span class="hint">rank · accuracy · throughput</span></div>
+ 
+        <div class="lbrow win">
+          <div class="rank" style="--mc:#E8B05A"><span class="rnum">①</span><span class="rlab">1ST</span></div>
+          <div class="who">
+            <div class="mname">Qwen3.6-35B-A3B</div>
+            <div class="mtag">MoE · 4-bit · 24.7 GB · mlx-community</div>
+            <div class="track"><span class="seg" style="background:#7C82FF" title="Snail in a well · Math · PASS (last=28 expected=28)"></span><span class="seg" style="background:#7C82FF" title="2¹⁰⁰ mod 7 · Math · PASS (last=2 expected=2)"></span><span class="seg" style="background:#7C82FF" title="Apples remaining · Math · PASS (last=36 expected=36)"></span><span class="seg" style="background:#7C82FF" title="Both marbles red · Math · PASS (found &amp;#x27;5/14&amp;#x27;)"></span><span class="seg" style="background:#2FD3C0" title="Transitive height · Logic · PASS (verdict=no)"></span><span class="seg" style="background:#2FD3C0" title="House ordering · Logic · PASS (last=4 expected=4)"></span><span class="seg" style="background:#F2A65A" title="Balanced brackets · Coding · PASS (all tests pass)"></span><span class="seg" style="background:#F2A65A" title="Roman→int · Coding · PASS (all tests pass)"></span><span class="seg" style="background:#5AA9F2" title="All-C sentence · Constraint · PASS (all c (4 words))"></span><span class="seg" style="background:#5AA9F2" title="FizzBuzz 1–15 · Constraint · PASS (exact sequence)"></span><span class="seg" style="background:#E879A6" title="Capital of Australia · Knowledge · PASS (found &amp;#x27;canberra&amp;#x27;)"></span><span class="seg" style="background:#8FD15A" title="Count the e&#x27;s · Counting · PASS (last=5 expected=5)"></span></div>
+          </div>
+          <div class="score"><span class="sv">12</span><span class="sd">/12</span>
+            <div class="accbar"><i style="width:100%"></i></div>
+            <div class="acclab">100% correct</div>
+          </div>
+          <div class="spd">
+            <div class="spv">74.2<small>tok/s</small></div>
+            <div class="spt">180.6s total</div>
+          </div>
+        </div>
+        <div class="lbrow ">
+          <div class="rank" style="--mc:#C4CEE0"><span class="rnum">②</span><span class="rlab">2ND</span></div>
+          <div class="who">
+            <div class="mname">Qwen3.6-27B</div>
+            <div class="mtag">Dense · 4-bit · 16.1 GB · lmstudio-community</div>
+            <div class="track"><span class="seg" style="background:#7C82FF" title="Snail in a well · Math · PASS (last=28 expected=28)"></span><span class="seg" style="background:#7C82FF" title="2¹⁰⁰ mod 7 · Math · PASS (last=2 expected=2)"></span><span class="seg" style="background:#7C82FF" title="Apples remaining · Math · PASS (last=36 expected=36)"></span><span class="seg" style="background:#7C82FF" title="Both marbles red · Math · PASS (found &amp;#x27;5/14&amp;#x27;)"></span><span class="seg" style="background:#2FD3C0" title="Transitive height · Logic · PASS (verdict=no)"></span><span class="seg" style="background:#2FD3C0" title="House ordering · Logic · PASS (last=4 expected=4)"></span><span class="seg" style="background:#F2A65A" title="Balanced brackets · Coding · PASS (all tests pass)"></span><span class="seg" style="background:#F2A65A" title="Roman→int · Coding · PASS (all tests pass)"></span><span class="seg" style="background:transparent;border:1px solid var(--fail);box-shadow:none" title="All-C sentence · Constraint · FAIL (only 0 words)"></span><span class="seg" style="background:#5AA9F2" title="FizzBuzz 1–15 · Constraint · PASS (exact sequence)"></span><span class="seg" style="background:#E879A6" title="Capital of Australia · Knowledge · PASS (found &amp;#x27;canberra&amp;#x27;)"></span><span class="seg" style="background:#8FD15A" title="Count the e&#x27;s · Counting · PASS (last=5 expected=5)"></span></div>
+          </div>
+          <div class="score"><span class="sv">11</span><span class="sd">/12</span>
+            <div class="accbar"><i style="width:92%"></i></div>
+            <div class="acclab">92% correct</div>
+          </div>
+          <div class="spd">
+            <div class="spv">17.7<small>tok/s</small></div>
+            <div class="spt">873.0s total</div>
+          </div>
+        </div>
+        <div class="lbrow ">
+          <div class="rank" style="--mc:#C8895A"><span class="rnum">③</span><span class="rlab">3RD</span></div>
+          <div class="who">
+            <div class="mname">Qwen3.6-35B-A3B</div>
+            <div class="mtag">MoE · 4-bit · 20.4 GB · lmstudio-community</div>
+            <div class="track"><span class="seg" style="background:#7C82FF" title="Snail in a well · Math · PASS (last=28 expected=28)"></span><span class="seg" style="background:#7C82FF" title="2¹⁰⁰ mod 7 · Math · PASS (last=2 expected=2)"></span><span class="seg" style="background:#7C82FF" title="Apples remaining · Math · PASS (last=36 expected=36)"></span><span class="seg" style="background:transparent;border:1px solid var(--fail);box-shadow:none" title="Both marbles red · Math · FAIL (none of (&amp;#x27;5/14&amp;#x27;,))"></span><span class="seg" style="background:#2FD3C0" title="Transitive height · Logic · PASS (verdict=no)"></span><span class="seg" style="background:#2FD3C0" title="House ordering · Logic · PASS (last=4 expected=4)"></span><span class="seg" style="background:#F2A65A" title="Balanced brackets · Coding · PASS (all tests pass)"></span><span class="seg" style="background:transparent;border:1px solid var(--fail);box-shadow:none" title="Roman→int · Coding · FAIL (no code block / function found)"></span><span class="seg" style="background:#5AA9F2" title="All-C sentence · Constraint · PASS (all c (6 words))"></span><span class="seg" style="background:#5AA9F2" title="FizzBuzz 1–15 · Constraint · PASS (exact sequence)"></span><span class="seg" style="background:#E879A6" title="Capital of Australia · Knowledge · PASS (found &amp;#x27;canberra&amp;#x27;)"></span><span class="seg" style="background:#8FD15A" title="Count the e&#x27;s · Counting · PASS (last=5 expected=5)"></span></div>
+          </div>
+          <div class="score"><span class="sv">10</span><span class="sd">/12</span>
+            <div class="accbar"><i style="width:83%"></i></div>
+            <div class="acclab">83% correct</div>
+          </div>
+          <div class="spd">
+            <div class="spv">100.0<small>tok/s</small></div>
+            <div class="spt">142.8s total</div>
+          </div>
+        </div>
+        <div class="lbrow ">
+          <div class="rank" style="--mc:#6B7689"><span class="rnum">④</span><span class="rlab">4TH</span></div>
+          <div class="who">
+            <div class="mname">Qwen3.6-27B</div>
+            <div class="mtag">Dense · 8-bit · 29.5 GB · lmstudio-community</div>
+            <div class="track"><span class="seg" style="background:#7C82FF" title="Snail in a well · Math · PASS (last=28 expected=28)"></span><span class="seg" style="background:#7C82FF" title="2¹⁰⁰ mod 7 · Math · PASS (last=2 expected=2)"></span><span class="seg" style="background:#7C82FF" title="Apples remaining · Math · PASS (last=36 expected=36)"></span><span class="seg" style="background:transparent;border:1px solid var(--fail);box-shadow:none" title="Both marbles red · Math · FAIL (none of (&amp;#x27;5/14&amp;#x27;,))"></span><span class="seg" style="background:#2FD3C0" title="Transitive height · Logic · PASS (verdict=no)"></span><span class="seg" style="background:#2FD3C0" title="House ordering · Logic · PASS (last=4 expected=4)"></span><span class="seg" style="background:#F2A65A" title="Balanced brackets · Coding · PASS (all tests pass)"></span><span class="seg" style="background:transparent;border:1px solid var(--fail);box-shadow:none" title="Roman→int · Coding · FAIL (SyntaxError: &amp;#x27;{&amp;#x27; was never closed)"></span><span class="seg" style="background:#5AA9F2" title="All-C sentence · Constraint · PASS (all c (5 words))"></span><span class="seg" style="background:#5AA9F2" title="FizzBuzz 1–15 · Constraint · PASS (exact sequence)"></span><span class="seg" style="background:#E879A6" title="Capital of Australia · Knowledge · PASS (found &amp;#x27;canberra&amp;#x27;)"></span><span class="seg" style="background:#8FD15A" title="Count the e&#x27;s · Counting · PASS (last=5 expected=5)"></span></div>
+          </div>
+          <div class="score"><span class="sv">10</span><span class="sd">/12</span>
+            <div class="accbar"><i style="width:83%"></i></div>
+            <div class="acclab">83% correct</div>
+          </div>
+          <div class="spd">
+            <div class="spv">9.7<small>tok/s</small></div>
+            <div class="spt">1167.4s total</div>
+          </div>
+        </div>
+ <div class="legend">
+   <span><i style="background:#7C82FF"></i>Math</span><span><i style="background:#2FD3C0"></i>Logic</span><span><i style="background:#F2A65A"></i>Coding</span><span><i style="background:#5AA9F2"></i>Constraint</span><span><i style="background:#E879A6"></i>Knowledge</span><span><i style="background:#8FD15A"></i>Counting</span>
+   <span><i style="background:transparent;border:1px solid var(--fail)"></i>missed</span>
+ </div>
+</section>
+
+<section>
+ <div class="sechead"><span class="n">02</span><h2>Where each model earned its points</h2><span class="hint">passes per category</span></div>
+ <table class="matrix"><thead><tr><th style="text-align:left">Category</th><th>35B-A3B · OptiQ 4-bit</th><th>27B · 4-bit</th><th>35B-A3B · MLX 4-bit</th><th>27B · 8-bit</th></tr></thead>
+ <tbody><tr><th class="catlab"><span class="dot" style="background:#7C82FF"></span>Math</th><td><div class="cmat" style="--h:#7C82FF;--p:100%"><b>4/4</b></div></td><td><div class="cmat" style="--h:#7C82FF;--p:100%"><b>4/4</b></div></td><td><div class="cmat" style="--h:#7C82FF;--p:75%"><b>3/4</b></div></td><td><div class="cmat" style="--h:#7C82FF;--p:75%"><b>3/4</b></div></td></tr><tr><th class="catlab"><span class="dot" style="background:#2FD3C0"></span>Logic</th><td><div class="cmat" style="--h:#2FD3C0;--p:100%"><b>2/2</b></div></td><td><div class="cmat" style="--h:#2FD3C0;--p:100%"><b>2/2</b></div></td><td><div class="cmat" style="--h:#2FD3C0;--p:100%"><b>2/2</b></div></td><td><div class="cmat" style="--h:#2FD3C0;--p:100%"><b>2/2</b></div></td></tr><tr><th class="catlab"><span class="dot" style="background:#F2A65A"></span>Coding</th><td><div class="cmat" style="--h:#F2A65A;--p:100%"><b>2/2</b></div></td><td><div class="cmat" style="--h:#F2A65A;--p:100%"><b>2/2</b></div></td><td><div class="cmat" style="--h:#F2A65A;--p:50%"><b>1/2</b></div></td><td><div class="cmat" style="--h:#F2A65A;--p:50%"><b>1/2</b></div></td></tr><tr><th class="catlab"><span class="dot" style="background:#5AA9F2"></span>Constraint</th><td><div class="cmat" style="--h:#5AA9F2;--p:100%"><b>2/2</b></div></td><td><div class="cmat" style="--h:#5AA9F2;--p:50%"><b>1/2</b></div></td><td><div class="cmat" style="--h:#5AA9F2;--p:100%"><b>2/2</b></div></td><td><div class="cmat" style="--h:#5AA9F2;--p:100%"><b>2/2</b></div></td></tr><tr><th class="catlab"><span class="dot" style="background:#E879A6"></span>Knowledge</th><td><div class="cmat" style="--h:#E879A6;--p:100%"><b>1/1</b></div></td><td><div class="cmat" style="--h:#E879A6;--p:100%"><b>1/1</b></div></td><td><div class="cmat" style="--h:#E879A6;--p:100%"><b>1/1</b></div></td><td><div class="cmat" style="--h:#E879A6;--p:100%"><b>1/1</b></div></td></tr><tr><th class="catlab"><span class="dot" style="background:#8FD15A"></span>Counting</th><td><div class="cmat" style="--h:#8FD15A;--p:100%"><b>1/1</b></div></td><td><div class="cmat" style="--h:#8FD15A;--p:100%"><b>1/1</b></div></td><td><div class="cmat" style="--h:#8FD15A;--p:100%"><b>1/1</b></div></td><td><div class="cmat" style="--h:#8FD15A;--p:100%"><b>1/1</b></div></td></tr></tbody></table>
+</section>
+
+<section>
+ <div class="sechead"><span class="n">03</span><h2>Event-by-event scorecard</h2><span class="hint">click any cell for the model's answer</span></div>
+ <div class="card"><table class="sc"><thead><tr><th>Prompt</th><th>35B-A3B · OptiQ 4-bit</th><th>27B · 4-bit</th><th>35B-A3B · MLX 4-bit</th><th>27B · 8-bit</th></tr></thead>
+ <tbody><tr><th class="ptitle"><span class="ctag" style="--h:#7C82FF">Math</span>Snail in a well</th><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=28 expected=28</span></summary>
+              <div class="ansmeta">74.4 tok/s · 2334 tok · 5976 think-chars</div>
+              <pre class="ans">The snail makes a net progress of 1 foot per full day-night cycle (3 feet up, 2 feet down). However, once it reaches or passes the top during its daytime climb, it doesn&#x27;t slide back at night. 
+
+To find when this happens, we calculate how high it needs to be at the start of a day so that one 3-foot climb gets it to 30 feet:
+`30 - 3 = 27 feet`
+
+Since the snail gains 1 net foot per cycle, it will reach 27 feet after 26 full days (ending on night 26). 
+- **Start of Day 27:** At 26 ft → climbs to 29 ft → slides back to 27 ft.
+- **Start of Day 28:** At 27 ft → climbs 3 ft → reaches exactly 30 ft and escapes!
+
+**28**</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=28 expected=28</span></summary>
+              <div class="ansmeta">16.8 tok/s · 1747 tok · 4958 think-chars</div>
+              <pre class="ans">Each full day-night cycle results in a net gain of 1 foot (3 feet up minus 2 feet down). However, once the snail reaches or exceeds the top during its daytime climb, it escapes and does not slide back overnight.
+
+By the start of day 27, the snail has made 26 feet of net progress. During day 27, it climbs to 29 feet, then slides back to 27 feet that night.
+On day 28, it starts at 27 feet, climbs 3 feet to reach exactly 30 feet, and escapes the well.
+
+Final answer: 28</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=28 expected=28</span></summary>
+              <div class="ansmeta">99.3 tok/s · 1905 tok · 4241 think-chars</div>
+              <pre class="ans">Here is the step-by-step breakdown to solve this problem:
+
+1.  **Understand the Net Progress:** Each full day (climbing during the day and sliding at night), the snail makes a net progress of 1 foot ($3 \text{ feet up} - 2 \text{ feet down}$).
+2.  **The &quot;Last Step&quot; Logic:** The common mistake is to simply divide the total height by the net progress ($30 / 1 = 30$ days). However, this ignores the fact that once the snail reaches the top during the day, it does not slide back down at night.
+3.  **Calculate the Height Before the Final Climb:** On the final day, the snail climbs 3 feet to get out of the well. Therefore, on the morning of the last day, the snail must be at a height where adding 3 feet reaches 30 feet.
+    $$30 \text{ feet (total)} - 3 \text{ feet (final climb)} = 27 \text{ feet}$$
+4.  **Determine Days to Reach 27 Feet:** Since the snail gains a net 1 foot per day, it takes 27 days to reach a height of 27 feet at the start of the next morning.
+    *   Start of Day 1: 0 feet
+    *   End of Day 1 (after slide): 1 foot
+    *   ...
+    *   End of Day 27 (after slide): 27 feet
+5.  **The Final Day:** On the morning of **Day 28**, the snile is at 27 feet. It climbs up 3 feet ($27 + 3 = 30$) and reaches the top of the well.
+
+**28**</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=28 expected=28</span></summary>
+              <div class="ansmeta">9.7 tok/s · 1170 tok · 2619 think-chars</div>
+              <pre class="ans">The snail reaches the top on day **28**.
+
+Here is the step-by-step breakdown:
+
+1.  **Net Progress:** Each full cycle (day and night), the snail climbs 3 feet but slides back 2 feet, resulting in a net gain of **1 foot per day**.
+2.  **The Trap:** You cannot simply divide 30 by 1 to get 30 days. This is because once the snail reaches the top during the day, it escapes and does not slide back down that night.
+3.  **The Calculation:** We need to find out how many days it takes for the snail to reach a height where its daily climb of 3 feet will get it to the top (30 feet).
+    *   $30 \text{ feet} - 3 \text{ feet (daily climb)} = 27 \text{ feet}$.
+4.  **Reaching the Threshold:** It takes the snail **27 days** to reach a height of 27 feet (since it gains 1 foot per day).
+5.  **The Final Climb:** On the morning of **Day 28**, the snail starts at 27 feet and climbs up 3 feet, reaching exactly 30 feet. It has reached the top.
+
+**Answer: 28**</pre></details></td></tr><tr><th class="ptitle"><span class="ctag" style="--h:#7C82FF">Math</span>2¹⁰⁰ mod 7</th><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=2 expected=2</span></summary>
+              <div class="ansmeta">74.6 tok/s · 1247 tok · 3204 think-chars</div>
+              <pre class="ans">2</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=2 expected=2</span></summary>
+              <div class="ansmeta">17.2 tok/s · 1583 tok · 4711 think-chars</div>
+              <pre class="ans">2</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=2 expected=2</span></summary>
+              <div class="ansmeta">99.7 tok/s · 1291 tok · 2001 think-chars</div>
+              <pre class="ans">To find the remainder when $2^{100}$ is divided by 7, we can look for a pattern in the powers of 2 modulo 7.
+
+Let&#x27;s calculate the first few powers of 2:
+*   $2^1 = 2 \equiv 2 \pmod{7}$
+*   $2^2 = 4 \equiv 4 \pmod{7}$
+*   $2^3 = 8 \equiv 1 \pmod{7}$
+
+Since $2^3 \equiv 1 \pmod{7}$, the powers of 2 repeat in a cycle of 3. We can use this to simplify $2^{100}$.
+
+We divide the exponent 100 by the cycle length 3:
+$$100 = 3 \times 33 + 1$$
+
+Now we can rewrite $2^{100}$ as:
+$$2^{100} = 2^{(3 \times 33) + 1} = (2^3)^{33} \times 2^1$$
+
+Substituting the modular equivalence ($2^3 \equiv 1 \pmod{7}$):
+$$2^{100} \equiv (1)^{33} \times 2 \pmod{7}$$
+$$2^{100} \equiv 1 \times 2 \pmod{7}$$
+$$2^{100} \equiv 2 \pmod{7}$$
+
+The remainder is 2.
+
+2</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=2 expected=2</span></summary>
+              <div class="ansmeta">9.7 tok/s · 673 tok · 1637 think-chars</div>
+              <pre class="ans">The remainder is **2**.</pre></details></td></tr><tr><th class="ptitle"><span class="ctag" style="--h:#7C82FF">Math</span>Apples remaining</th><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=36 expected=36</span></summary>
+              <div class="ansmeta">74.0 tok/s · 473 tok · 1307 think-chars</div>
+              <pre class="ans">36</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=36 expected=36</span></summary>
+              <div class="ansmeta">18.0 tok/s · 351 tok · 949 think-chars</div>
+              <pre class="ans">36</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=36 expected=36</span></summary>
+              <div class="ansmeta">100.3 tok/s · 385 tok · 994 think-chars</div>
+              <pre class="ans">36</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=36 expected=36</span></summary>
+              <div class="ansmeta">9.7 tok/s · 866 tok · 2562 think-chars</div>
+              <pre class="ans">36</pre></details></td></tr><tr><th class="ptitle"><span class="ctag" style="--h:#7C82FF">Math</span>Both marbles red</th><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">found &#x27;5/14&#x27;</span></summary>
+              <div class="ansmeta">73.0 tok/s · 1361 tok · 4370 think-chars</div>
+              <pre class="ans">The probability is **5/14**.</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">found &#x27;5/14&#x27;</span></summary>
+              <div class="ansmeta">17.9 tok/s · 1474 tok · 4561 think-chars</div>
+              <pre class="ans">The probability is **5/14**. 
+
+*(Calculation: First draw red = 5/8. After removing one red, second draw red = 4/7. Multiply: (5/8) × (4/7) = 20/56 = 5/14.)*</pre></details></td><td class="cell no">
+              <details><summary><span class="mk">✗</span><span class="dt">none of (&#x27;5/14&#x27;,)</span></summary>
+              <div class="ansmeta">99.1 tok/s · 1504 tok · 3535 think-chars</div>
+              <pre class="ans">To find the probability that both marbles drawn are red, we can break this down into two steps since the drawing is done without replacement.
+
+**Step 1: Probability of the first marble being red.**
+*   There are 5 red marbles and a total of 8 marbles ($5 \text{ red} + 3 \text{ blue}$).
+*   The probability of drawing a red marble first is $\frac{5}{8}$.
+
+**Step 2: Probability of the second marble being red.**
+*   Since one red marble has been removed, there are now 4 red marbles left.
+*   Since one total marble has been removed, there are now 7 total marbles left ($8 - 1$).
+*   The probability of drawing a red marble second is $\frac{4}{7}$.
+
+**Step 3: Calculate the combined probability.**
+To find the probability of both events happening, multiply the probabilities from Step 1 and Step 2:
+
+$$ P(\text{Both Red}) = \frac{5}{8} \times \frac{4}{7} $$
+
+$$ P(\text{Both Red}) = \frac{20}{56} $$
+
+**Step 4: Simplify the fraction.**
+Divide the numerator and the denominator by their greatest common divisor, which is 4:
+
+$$ \frac{20 \div 4}{56 \div 4} = \frac{5}{14} $$
+
+The probability that both marbles are red is **$\frac{5}{14}$**.</pre></details></td><td class="cell no">
+              <details><summary><span class="mk">✗</span><span class="dt">none of (&#x27;5/14&#x27;,)</span></summary>
+              <div class="ansmeta">9.7 tok/s · 953 tok · 2194 think-chars</div>
+              <pre class="ans">The total number of marbles is $5 + 3 = 8$.
+
+- The probability that the first marble drawn is red is $\frac{5}{8}$.
+- Since we do not replace it, there are now 4 red marbles left out of 7 total marbles. The probability that the second marble is also red is $\frac{4}{7}$.
+
+Multiply these probabilities together:
+$$\frac{5}{8} \times \frac{4}{7} = \frac{20}{56}$$
+
+Simplify the fraction by dividing numerator and denominator by their greatest common divisor (4):
+$$\frac{20 \div 4}{56 \div 4} = \frac{5}{14}$$
+
+$\boxed{\frac{5}{14}}$</pre></details></td></tr><tr><th class="ptitle"><span class="ctag" style="--h:#2FD3C0">Logic</span>Transitive height</th><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">verdict=no</span></summary>
+              <div class="ansmeta">73.8 tok/s · 498 tok · 1685 think-chars</div>
+              <pre class="ans">No. Based on the given statements, Tom is taller than Sam and Sam is taller than Dan. By the transitive property of height comparisons, this means Tom must be taller than Dan. Therefore, the claim that Dan is taller than Tom directly contradicts the established order and cannot be true.</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">verdict=no</span></summary>
+              <div class="ansmeta">18.0 tok/s · 424 tok · 1379 think-chars</div>
+              <pre class="ans">No. 
+
+If Tom is taller than Sam, and Sam is taller than Dan, then by the transitive property of comparison, Tom must be taller than Dan. The claim that Dan is taller than Tom directly contradicts this logical chain, so it cannot be true.</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">verdict=no</span></summary>
+              <div class="ansmeta">101.5 tok/s · 428 tok · 1382 think-chars</div>
+              <pre class="ans">No. Based on the given information, Tom is taller than Sam, and Sam is taller than Dan. By the transitive property of height, this means Tom must also be taller than Dan. Therefore, the claim that Dan is taller than Tom directly contradicts the established facts and cannot be true.</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">verdict=no</span></summary>
+              <div class="ansmeta">9.7 tok/s · 425 tok · 1323 think-chars</div>
+              <pre class="ans">No. 
+
+Explanation: The &quot;taller than&quot; relationship is transitive. Since Tom is taller than Sam, and Sam is taller than Dan, it logically follows that Tom must be taller than Dan. Therefore, the claim that Dan is taller than Tom directly contradicts the given information and cannot be true.</pre></details></td></tr><tr><th class="ptitle"><span class="ctag" style="--h:#2FD3C0">Logic</span>House ordering</th><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=4 expected=4</span></summary>
+              <div class="ansmeta">71.0 tok/s · 371 tok · 1176 think-chars</div>
+              <pre class="ans">4</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=4 expected=4</span></summary>
+              <div class="ansmeta">17.9 tok/s · 447 tok · 1429 think-chars</div>
+              <pre class="ans">4</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=4 expected=4</span></summary>
+              <div class="ansmeta">97.6 tok/s · 423 tok · 1353 think-chars</div>
+              <pre class="ans">4</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=4 expected=4</span></summary>
+              <div class="ansmeta">9.6 tok/s · 473 tok · 1578 think-chars</div>
+              <pre class="ans">4</pre></details></td></tr><tr><th class="ptitle"><span class="ctag" style="--h:#F2A65A">Coding</span>Balanced brackets</th><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">all tests pass</span></summary>
+              <div class="ansmeta">74.0 tok/s · 1943 tok · 6824 think-chars</div>
+              <pre class="ans">```python
+def is_balanced(s):
+    &quot;&quot;&quot;
+    Checks if the string s has balanced and correctly nested brackets (), [], {}.
+    
+    Args:
+        s (str): The input string containing brackets.
+        
+    Returns:
+        bool: True if balanced, False otherwise.
+    &quot;&quot;&quot;
+    stack = []
+    # Map closing brackets to their corresponding opening brackets
+    bracket_map = {&#x27;)&#x27;: &#x27;(&#x27;, &#x27;]&#x27;: &#x27;[&#x27;, &#x27;}&#x27;: &#x27;{&#x27;}
+    
+    for char in s:
+        if char in bracket_map.values():  # It&#x27;s an opening bracket
+            stack.append(char)
+        elif char in bracket_map.keys():  # It&#x27;s a closing bracket
+            # If the stack is empty, there is no matching opening bracket.
+            # Or, if the popped element does not match the expected opening bracket.
+            if not stack or stack.pop() != bracket_map[char]:
+                return False
+    
+    # If the stack is empty, all brackets were matched correctly.
+    return len(stack) == 0
+
+# Example usage:
+print(is_balanced(&quot;([{}])&quot;))   # True
+print(is_balanced(&quot;([)]&quot;))     # False
+print(is_balanced(&quot;{[()]}&quot;))   # True
+print(is_balanced(&quot;(((&quot;))      # False
+```</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">all tests pass</span></summary>
+              <div class="ansmeta">17.7 tok/s · 2476 tok · 9429 think-chars</div>
+              <pre class="ans">```python
+def is_balanced(s):
+    stack = []
+    matching = {&#x27;)&#x27;: &#x27;(&#x27;, &#x27;]&#x27;: &#x27;[&#x27;, &#x27;}&#x27;: &#x27;{&#x27;}
+    opening = set(matching.values())
+
+    for char in s:
+        if char in opening:
+            stack.append(char)
+        elif char in matching:
+            if not stack or stack.pop() != matching[char]:
+                return False
+    return not stack
+```</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">all tests pass</span></summary>
+              <div class="ansmeta">99.6 tok/s · 1848 tok · 6538 think-chars</div>
+              <pre class="ans">```python
+def is_balanced(s):
+    stack = []
+    bracket_map = {&#x27;)&#x27;: &#x27;(&#x27;, &#x27;]&#x27;: &#x27;[&#x27;, &#x27;}&#x27;: &#x27;{&#x27;}
+    
+    for char in s:
+        if char in &#x27;([{&#x27;:
+            stack.append(char)
+        elif char in &#x27;)]}&#x27;:
+            # If stack is empty or top doesn&#x27;t match the closing bracket
+            if not stack or stack.pop() != bracket_map[char]:
+                return False
+                
+    # True only if all opening brackets have been matched and removed
+    return len(stack) == 0
+```</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">all tests pass</span></summary>
+              <div class="ansmeta">9.6 tok/s · 1512 tok · 5206 think-chars</div>
+              <pre class="ans">Here is the Python function to check if brackets are balanced using a stack data structure:
+
+```python
+def is_balanced(s):
+    &quot;&quot;&quot;
+    Returns True if all brackets in string s are balanced and correctly nested,
+    False otherwise. Handles (), [], and {}.
+    &quot;&quot;&quot;
+    stack = []
+    # Map closing brackets to their corresponding opening brackets
+    bracket_map = {&#x27;)&#x27;: &#x27;(&#x27;, &#x27;]&#x27;: &#x27;[&#x27;, &#x27;}&#x27;: &#x27;{&#x27;}
+    opening_brackets = set(bracket_map.values())
+
+    for char in s:
+        if char in opening_brackets:
+            stack.append(char)
+        elif char in bracket_map:
+            # If it&#x27;s a closing bracket, check if the stack is empty 
+            # or if the top of the stack doesn&#x27;t match the expected opener.
+            if not stack or stack.pop() != bracket_map[char]:
+                return False
+
+    # If the stack is empty, all opening brackets were successfully closed
+    return len(stack) == 0
+```</pre></details></td></tr><tr><th class="ptitle"><span class="ctag" style="--h:#F2A65A">Coding</span>Roman→int</th><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">all tests pass</span></summary>
+              <div class="ansmeta">75.2 tok/s · 1968 tok · 5706 think-chars</div>
+              <pre class="ans">```python
+def roman_to_int(s):
+    roman_map = {&#x27;I&#x27;: 1, &#x27;V&#x27;: 5, &#x27;X&#x27;: 10, &#x27;L&#x27;: 50, &#x27;C&#x27;: 100, &#x27;D&#x27;: 500, &#x27;M&#x27;: 1000}
+    total = 0
+    prev_value = 0
+    for char in reversed(s):
+        curr_value = roman_map[char]
+        if curr_value &lt; prev_value:
+            total -= curr_value
+        else:
+            total += curr_value
+        prev_value = curr_value
+    return total
+```</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">all tests pass</span></summary>
+              <div class="ansmeta">17.7 tok/s · 2144 tok · 6251 think-chars</div>
+              <pre class="ans">```python
+def roman_to_int(s):
+    roman_map = {&#x27;I&#x27;: 1, &#x27;V&#x27;: 5, &#x27;X&#x27;: 10, &#x27;L&#x27;: 50, &#x27;C&#x27;: 100, &#x27;D&#x27;: 500, &#x27;M&#x27;: 1000}
+    total = 0
+    for i in range(len(s)):
+        value = roman_map[s[i]]
+        # If current value is less than the next value, subtract it (subtractive notation)
+        if i &lt; len(s) - 1 and value &lt; roman_map[s[i + 1]]:
+            total -= value
+        else:
+            total += value
+    return total
+```</pre></details></td><td class="cell no">
+              <details><summary><span class="mk">✗</span><span class="dt">no code block / function found</span></summary>
+              <div class="ansmeta">98.9 tok/s · 2560 tok · 7808 think-chars</div>
+              <pre class="ans">(no answer)</pre></details></td><td class="cell no">
+              <details><summary><span class="mk">✗</span><span class="dt">SyntaxError: &#x27;{&#x27; was never closed</span></summary>
+              <div class="ansmeta">9.5 tok/s · 2560 tok · 8217 think-chars</div>
+              <pre class="ans">```python
+def roman_to_int(s):
+    &quot;&quot;&quot;
+    Converts a valid uppercase Roman numeral string to its integer value.
+    &quot;&quot;&quot;
+    # Mapping of Roman numerals to their corresponding integer values
+    roman_map = {</pre></details></td></tr><tr><th class="ptitle"><span class="ctag" style="--h:#5AA9F2">Constraint</span>All-C sentence</th><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">all c (4 words)</span></summary>
+              <div class="ansmeta">73.9 tok/s · 1397 tok · 4725 think-chars</div>
+              <pre class="ans">Curious cats crave cream.</pre></details></td><td class="cell no">
+              <details><summary><span class="mk">✗</span><span class="dt">only 0 words</span></summary>
+              <div class="ansmeta">17.7 tok/s · 2560 tok · 8562 think-chars</div>
+              <pre class="ans">(no answer)</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">all c (6 words)</span></summary>
+              <div class="ansmeta">99.3 tok/s · 1854 tok · 6751 think-chars</div>
+              <pre class="ans">clever cats catch cunning creatures calmly.</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">all c (5 words)</span></summary>
+              <div class="ansmeta">9.6 tok/s · 1349 tok · 4859 think-chars</div>
+              <pre class="ans">Curious cats chase colorful caterpillars.</pre></details></td></tr><tr><th class="ptitle"><span class="ctag" style="--h:#5AA9F2">Constraint</span>FizzBuzz 1–15</th><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">exact sequence</span></summary>
+              <div class="ansmeta">75.1 tok/s · 863 tok · 1996 think-chars</div>
+              <pre class="ans">1, 2, Fizz, 4, Buzz, Fizz, 7, 8, Fizz, Buzz, 11, Fizz, 13, 14, FizzBuzz</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">exact sequence</span></summary>
+              <div class="ansmeta">17.7 tok/s · 1419 tok · 3430 think-chars</div>
+              <pre class="ans">1, 2, Fizz, 4, Buzz, Fizz, 7, 8, Fizz, Buzz, 11, Fizz, 13, 14, FizzBuzz</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">exact sequence</span></summary>
+              <div class="ansmeta">100.5 tok/s · 1288 tok · 3240 think-chars</div>
+              <pre class="ans">1, 2, Fizz, 4, Buzz, Fizz, 7, 8, Fizz, Buzz, 11, Fizz, 13, 14, FizzBuzz</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">exact sequence</span></summary>
+              <div class="ansmeta">9.6 tok/s · 594 tok · 1299 think-chars</div>
+              <pre class="ans">1, 2, Fizz, 4, Buzz, Fizz, 7, 8, Fizz, Buzz, 11, Fizz, 13, 14, FizzBuzz</pre></details></td></tr><tr><th class="ptitle"><span class="ctag" style="--h:#E879A6">Knowledge</span>Capital of Australia</th><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">found &#x27;canberra&#x27;</span></summary>
+              <div class="ansmeta">76.8 tok/s · 190 tok · 702 think-chars</div>
+              <pre class="ans">Canberra</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">found &#x27;canberra&#x27;</span></summary>
+              <div class="ansmeta">18.1 tok/s · 222 tok · 833 think-chars</div>
+              <pre class="ans">Canberra</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">found &#x27;canberra&#x27;</span></summary>
+              <div class="ansmeta">102.0 tok/s · 119 tok · 482 think-chars</div>
+              <pre class="ans">Canberra</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">found &#x27;canberra&#x27;</span></summary>
+              <div class="ansmeta">9.8 tok/s · 166 tok · 611 think-chars</div>
+              <pre class="ans">Canberra</pre></details></td></tr><tr><th class="ptitle"><span class="ctag" style="--h:#8FD15A">Counting</span>Count the e's</th><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=5 expected=5</span></summary>
+              <div class="ansmeta">75.1 tok/s · 534 tok · 1363 think-chars</div>
+              <pre class="ans">5</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=5 expected=5</span></summary>
+              <div class="ansmeta">17.3 tok/s · 405 tok · 1002 think-chars</div>
+              <pre class="ans">5</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=5 expected=5</span></summary>
+              <div class="ansmeta">101.5 tok/s · 333 tok · 790 think-chars</div>
+              <pre class="ans">5</pre></details></td><td class="cell ok">
+              <details><summary><span class="mk">✓</span><span class="dt">last=5 expected=5</span></summary>
+              <div class="ansmeta">9.6 tok/s · 425 tok · 1042 think-chars</div>
+              <pre class="ans">5</pre></details></td></tr></tbody></table></div>
+</section>
+
+<section>
+ <div class="sechead"><span class="n">04</span><h2>Throughput</h2><span class="hint">avg generation speed, greedy decode</span></div>
+ <div class="sbar"><div class="sl">35B-A3B · OptiQ 4-bit</div>
+          <div class="strack"><i style="width:74%"></i><b>74.2 tok/s</b></div></div><div class="sbar"><div class="sl">27B · 4-bit</div>
+          <div class="strack"><i style="width:18%"></i><b>17.7 tok/s</b></div></div><div class="sbar"><div class="sl">35B-A3B · MLX 4-bit</div>
+          <div class="strack"><i style="width:100%"></i><b>100.0 tok/s</b></div></div><div class="sbar"><div class="sl">27B · 8-bit</div>
+          <div class="strack"><i style="width:10%"></i><b>9.7 tok/s</b></div></div>
+ <p class="sub" style="margin-top:16px">Decode speed on Apple Silicon is bound by memory bandwidth — bytes read per token.
+ The dense 8-bit model reads its entire weight set every token; the sparse MoE models touch only ~3B of 35B
+ parameters, so despite the bigger headline size they run several times faster.</p>
+</section>
+
+<section>
+ <div class="sechead"><span class="n">05</span><h2>Tale of the tape</h2><span class="hint">what's actually under the hood</span></div>
+ <div class="card"><table class="tot"><thead><tr><th>Spec</th><th>35B-A3B · OptiQ 4-bit</th><th>27B · 4-bit</th><th>35B-A3B · MLX 4-bit</th><th>27B · 8-bit</th></tr></thead><tbody><tr><th>Architecture</th><td>MoE</td><td>Dense</td><td>MoE</td><td>Dense</td></tr><tr><th>Total params</th><td>35B</td><td>27B</td><td>35B</td><td>27B</td></tr><tr><th>Active / token</th><td>~3B · 8/256</td><td>27B · all</td><td>~3B · 8/256</td><td>27B · all</td></tr><tr><th>Quantization</th><td>4-bit</td><td>4-bit</td><td>4-bit</td><td>8-bit</td></tr><tr><th>Weights on disk</th><td>24.7 GB</td><td>16.1 GB</td><td>20.4 GB</td><td>29.5 GB</td></tr><tr><th>Layers</th><td>40</td><td>64</td><td>40</td><td>64</td></tr><tr><th>Hidden size</th><td>2048</td><td>5120</td><td>2048</td><td>5120</td></tr><tr><th>Source repo</th><td>mlx-community</td><td>lmstudio-community</td><td>lmstudio-community</td><td>lmstudio-community</td></tr></tbody></table></div>
+</section>
+
+<footer>
+ METHOD · 12 prompts across math, logic, executable coding, strict-format constraints, knowledge and tokenization.
+ Greedy decoding (temperature 0, seed 0) for reproducibility; max 2560 tokens.<br>
+ GRADING · numeric answers checked against ground truth · generated code executed against hidden test cases ·
+ constraints &amp; sequences verified programmatically. A model only scores when its <em>final</em> answer is correct.<br>
+ Run locally via the Local Chat MLX backend · 2026-06-25.
+</footer>
+
+</div></body></html>

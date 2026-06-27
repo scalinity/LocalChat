@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; frame-src 'none'; child-src 'none'; worker-src blob:; base-uri 'none'; form-action 'none';">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SaaS Pricing Plans</title>
+    <style>
+        /* Global Reset and Base Styles */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f7fa;
+            margin: 0;
+            padding: 2rem 1rem;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to top for better mobile view */
+            min-height: 100vh;
+        }
+
+        .pricing-container {
+            width: 100%;
+            max-width: 1200px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            padding-top: 2rem;
+        }
+
+        /* Header Styling */
+        .pricing-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .pricing-header h1 {
+            font-size: 2.5rem;
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+        }
+
+        .pricing-header p {
+            font-size: 1.1rem;
+            color: #6b7280;
+        }
+
+        /* Pricing Card Styling */
+        .card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Pro Tier Highlight */
+        .card.pro {
+            border: 3px solid #4f46e5; /* Indigo border */
+            background-color: #eef2ff; /* Light indigo background */
+            transform: scale(1.05); /* Slightly larger than others */
+            box-shadow: 0 15px 30px rgba(79, 70, 229, 0.2);
+        }
+
+        /* Badge Styling */
+        .badge {
+            display: inline-block;
+            background-color: #4f46e5;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+        }
+
+        /* Typography */
+        .card h2 {
+            font-size: 1.8rem;
+            color: #1f2937;
+            margin-top: 0;
+        }
+
+        .price {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #1f2937;
+            margin: 15px 0;
+        }
+
+        .price span {
+            font-size: 1.2rem;
+            font-weight: normal;
+            color: #6b7280;
+        }
+
+        /* Features List */
+        .features {
+            list-style: none;
+            padding: 0;
+            margin: 30px 0;
+            text-align: left;
+            flex-grow: 1; /* Allows features to take up available space */
+        }
+
+        .features li {
+            background: #f9fafb;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            font-size: 0.95rem;
+            color: #374151;
+        }
+
+        .features li::before {
+            content: '✓'; /* Checkmark icon */
+            margin-right: 10px;
+            color: #10b981; /* Green checkmark */
+            font-weight: bold;
+        }
+
+        /* CTA Button Styling */
+        .cta-button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-top: auto; /* Pushes button to the bottom of the card */
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        /* Specific Button Colors */
+        .btn-basic {
+            background-color: #6b7280;
+            color: white;
+        }
+
+        .btn-pro {
+            background-color: #4f46e5; /* Indigo */
+            color: white;
+        }
+
+        .btn-enterprise {
+            background-color: #1d4ed8; /* Stronger blue */
+            color: white;
+        }
+
+        /* Hover effects for buttons */
+        .cta-button:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem 0.5rem;
+            }
+            .pricing-container {
+                grid-template-columns: 1fr; /* Stack cards on small screens */
+                gap: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="pricing-header">
+        <h1>Choose Your Plan</h1>
+        <p>Find the perfect solution for your team's needs, from basic functionality to enterprise scale.</p>
+    </div>
+
+    <div class="pricing-container">
+
+        <!-- Basic Tier -->
+        <div class="card">
+            <h2>Basic</h2>
+            <p class="price">$9<span>/mo</span></p>
+            <ul class="features">
+                <li>Up to 5 Users</li>
+                <li>Standard Support</li>
+                <li>Core Feature Access</li>
+                <li>10GB Storage Limit</li>
+            </ul>
+            <button class="cta-button btn-basic">Get Started</button>
+        </div>
+
+        <!-- Pro Tier (Most Popular) -->
+        <div class="card pro">
+            <span class="badge">Most Popular</span>
+            <h2>Pro</h2>
+            <p class="price">$29<span>/mo</span></p>
+            <ul class="features">
+                <li>Unlimited Users</li>
+                <li>Priority 24/7 Support</li>
+                <li>Advanced Analytics Suite</li>
+                <li>100GB Storage Limit</li>
+            </ul>
+            <button class="cta-button btn-pro">Start Free Trial</button>
+        </div>
+
+        <!-- Enterprise Tier -->
+        <div class="card">
+            <h2>Enterprise</h2>
+            <p class="price">$99<span>/mo</span></p>
+            <ul class="features">
+                <li>Dedicated Account Manager</li>
+                <li>Custom Integrations API</li>
+                <li>Unlimited Storage & Scale</li>
+                <li>SLA Guarantee</li>
+            </ul>
+            <button class="cta-button btn-enterprise">Contact Sales</button>
+        </div>
+
+    </div>
+
+</body>
+</html>

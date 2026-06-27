@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; frame-src 'none'; child-src 'none'; worker-src blob:; base-uri 'none'; form-action 'none';">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SaaS Pricing</title>
+<style>
+  /* --- RESET & BASE STYLES --- */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --primary: #4f46e5;       /* Indigo */
+    --primary-hover: #4338ca;
+    --secondary: #ec4899;     /* Pink accent for badges */
+    --bg-body: #f8fafc;      /* Light slate background */
+    --text-main: #0f172a;    /* Near black */
+    --text-muted: #64748b;   /* Medium gray */
+    --border-color: #e2e8f0; /* Subtle border */
+    --white: #ffffff;
+    --radius-card: 16px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+    --shadow-lg: 0 10px 30px -5px rgba(79, 70, 229, 0.15);
+    --font-stack: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  body {
+    font-family: var(--font-stack);
+    background-color: var(--bg-body);
+    color: var(--text-main);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* --- LAYOUT CONTAINER --- */
+  .container {
+    width: 100%;
+    max-width: 1200px;
+    padding: 60px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 48px;
+  }
+
+  /* --- HERO SECTION --- */
+  .hero { text-align: center; max-width: 600px; }
+  
+  .hero h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, var(--text-main), var(--primary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero p {
+    font-size: 1.125rem;
+    color: var(--text-muted);
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  /* --- PRICING SWITCH (Visual Only) --- */
+  .billing-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--white);
+    border: 1px solid var(--border-color);
+    padding: 6px 16px;
+    border-radius: 999px;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+  }
+
+  .billing-toggle input { cursor: pointer; accent-color: var(--primary); transform: scale(1.2); }
+  .billing-toggle label { font-weight: 600; color: var(--text-main); }
+
+  /* --- PRICING GRID --- */
+  .pricing-grid {
+    display: flex;
+    gap: 24px;
+    align-items: stretch; /* Equal height cards */
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* --- CARD BASE STYLES --- */
+  .card {
+    background: var(--white);
+    border-radius: var(--radius-card);
+    padding: 40px 32px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid var(--border-color);
+    overflow: hidden; /* For the top ribbon */
+  }
+
+  .card:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-lg) !important;
+  }
+
+  /* --- PRO HIGHLIGHTS --- */
+  .pro-card { border-color: transparent; }
+  
+  .ribbon {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 5px;
+    background: linear-gradient(90deg, var(--primary), #818cf8);
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--white);
+    padding: 4px 12px;
+    border-radius: 999px;
+    margin-bottom: 20px;
+    width: fit-content;
+  }
+
+  .badge-popular { background-color: var(--secondary); box-shadow: 0 2px 8px rgba(236, 72, 153, 0.4); }
+  .badge-enterprise { background-color: #0f172a; }
+
+  /* --- TYPOGRAPHY INSIDE CARDS --- */
+  .plan-name { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; color: var(--text-main); }
+  
+  .price-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border-color); }
+  .currency { font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
+  .amount { font-size: 3rem; font-weight: 900; letter-spacing: -0.04em; color: var(--primary); line-height: 1; }
+  .period { font-size: 1rem; color: var(--text-muted); font-weight: 500; }
+
+  /* --- FEATURES LIST --- */
+  .features-list { list-style: none; margin-bottom: 32px; flex-grow: 1; }
+
+  .feature-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 0;
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .feature-item:last-child { border-bottom: none; }
+
+  /* Custom Check Icon SVG */
+  .check-icon {
+    width: 20px; height: 20px;
+    flex-shrink: 0;
+    color: var(--primary);
+  }
+
+  /* --- BUTTONS --- */
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 700;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    border: none;
+  }
+
+  .btn-primary {
+    background-color: var(--primary);
+    color: var(--white);
+    box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+  }
+  .btn-primary:hover { background-color: var(--primary-hover); transform: scale(1.02); }
+
+  .btn-outline {
+    background-color: transparent;
+    color: var(--text-main);
+    border: 2px solid var(--border-color);
+  }
+  .btn-outline:hover { border-color: var(--text-muted); background-color: #f8fafc; }
+
+  /* --- FOOTER / CTA --- */
+  .footer-cta { text-align: center; padding-bottom: 60px; }
+  .footer-cta h2 { font-size: 1.75rem; margin-bottom: 12px; }
+  .footer-cta p { color: var(--text-muted); max-width: 400px; margin: 0 auto 24px; }
+
+  /* --- RESPONSIVE --- */
+  @media (max-width: 86

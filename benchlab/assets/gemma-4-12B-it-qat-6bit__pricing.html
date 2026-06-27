@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; frame-src 'none'; child-src 'none'; worker-src blob:; base-uri 'none'; form-action 'none';">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pricing Plans | SaaS Platform</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --bg: #f9fafb;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --white: #ffffff;
+            --border: #e5e7eb;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 16px;
+            letter-spacing: -0.025em;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 30px;
+            align-items: stretch;
+        }
+
+        .card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow);
+        }
+
+        /* Highlighted Pro Card */
+        .card.featured {
+            border: 2px solid var(--primary);
+            position: relative;
+            transform: scale(1.03);
+            z-index: 1;
+            box-shadow: 0 20px 25px -5px rgba(79, 70, 229, 0.1), 0 10px 10px -5px rgba(79, 70, 229, 0.04);
+        }
+
+        .card.featured:hover {
+            transform: scale(1.05) translateY(-5px);
+        }
+
+        .badge {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            color: white;
+            padding: 6px 20px;
+            border-radius: 999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .plan-name {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .price-container {
+            margin-bottom: 30px;
+        }
+
+        .price {
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -0.05em;
+        }
+
+        .price span {
+            font-size: 1rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .features-list {
+            list-style: none;
+            margin-bottom: 40px;
+            flex-grow: 1;
+        }
+
+        .features-list li {
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+        }
+
+        .features-list li::before {
+            content: "✓";
+            margin-right: 12px;
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        .cta-button {
+            display: block;
+            text-align: center;
+            padding: 16px;
+            border-radius: 12px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: background 0.2s ease;
+        }
+
+        .btn-outline {
+            border: 2px solid var(--border);
+            color: var(--text-main);
+        }
+
+        .btn-outline:hover {
+            background: #f3f4f6;
+            border-color: #d1d5db;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border: 2px solid var(--primary);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            border-color: var(--primary-dark);
+        }
+
+        @media (max-width: 768px) {
+            .card.featured {
+                transform: scale(1);
+            }
+            .card.featured:hover {
+                transform: translateY(-5px);
+            }
+            header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Simple pricing for everyone</h1>
+        <p>Choose the perfect plan to scale your business. No hidden fees, just pure performance.</p>
+    </header>
+
+    <div class="pricing-grid">
+        <!-- Basic Tier -->
+        <div class="card">
+            <h2 class="plan-name">Basic</h2>
+            <div class="price-container">
+                <div class="price">$0<span>/mo</span></div>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Perfect for individuals</p>
+            </div>
+            <ul class="features-list">
+                <li>Up to 3 active projects</li>
+                <li>Basic analytics dashboard</li>
+                <li>5GB Cloud storage</li>
+                <li>Community support access</li>
+                <li>Standard integrations</li>
+            </ul>
+            <a href="#" class="cta-button btn-outline">Get Started</a>
+        </div>
+
+        <!-- Pro Tier (Highlighted) -->
+        <div class="card featured">
+            <div class="badge">Most Popular</div>
+            <h2 class="plan-name">Pro</h2>
+            <div class="price-container">
+                <div class="price">$49<span>/mo</span></div>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Best for growing teams</p>
+            </div>
+            <ul class="features-list">
+                <li>Unlimited active projects</li>
+                <li>Advanced AI insights</li>
+                <li>100GB Cloud storage</li>
+                <li>Priority email support</li>
+                <li>Custom domain mapping</li>
+                <li>Team collaboration tools</li>
+            </ul>
+            <a href="#" class="cta-button btn-primary">Start Free Trial</a>
+        </div>
+
+        <!-- Enterprise Tier -->
+        <div class="card">
+            <h2 class="plan-name">Enterprise</h2>
+            <div class="price-container">
+                <div class="price">Custom<span>/mo</span></div>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">For large organizations</p>
+            </div>
+            <ul class="features-list">
+                <li>Unlimited everything</li>
+                <li>Dedicated account manager</li>
+                <li>SSO & SAML Authentication</li>
+                <li>Custom SLA guarantees</li>
+                <li>On-premise deployment options</li>
+                <li>White-labeling capabilities</li>
+            </ul>
+            <a href="#" class="cta-button btn-outline">Contact Sales</a>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

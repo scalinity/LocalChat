@@ -1,0 +1,305 @@
+{
+  "models": {
+    "pavantippannagari/Ornith-1.0-9B-mlx-4Bit": {
+      "label": "Ornith-1.0-9B-mlx-4Bit",
+      "spec": {
+        "label": "Ornith-1.0-9B-mlx-4Bit",
+        "id": "pavantippannagari/Ornith-1.0-9B-mlx-4Bit",
+        "kind": "Dense",
+        "quant": "4-bit",
+        "size": "5.0 GB",
+        "loader": "mlx",
+        "_bytes": 5038161163
+      },
+      "load_s": 1.1,
+      "items": {
+        "edit_distance": {
+          "category": "coding",
+          "title": "Levenshtein distance",
+          "kind": "code",
+          "passed": true,
+          "detail": "all tests pass",
+          "answer": "```python\ndef min_edit_distance(a: str, b: str) -> int:\n    \"\"\"Return the Levenshtein edit distance between strings a and b.\n\n    Each operation (insertion, deletion, or substitution) costs 1.\n    Uses dynamic programming with O(len(a) * len(b)) time and space.\n    \"\"\"\n    m, n = len(a), len(b)\n\n    # dp[i][j] = edit distance between a[:i] and b[:j]\n    dp = [[0] * (n + 1) for _ in range(m + 1)]\n\n    # Base cases: transforming to/from an empty string\n    for i in range(m + 1):\n        dp[i][0] = i   # delete all characters from a[:i]\n    for j in range(n + 1):\n        dp[0][j] = j   # insert all characters into b[:j]\n\n    # Fill the DP table\n    for i in range(1, m + 1):\n        for j in range(1, n + 1):\n            if a[i - 1] == b[j - 1]:\n                dp[i][j] = dp[i - 1][j - 1]           # no change needed\n            else:\n                dp[i][j] = 1 + min(\n                    dp[i - 1][j],    # deletion from a\n                    dp[i][j - 1],    # insertion into b\n                    dp[i - 1][j - 1] # substitution\n                )\n\n    return dp[m][n]\n```",
+          "tps": 57.0,
+          "toks": 535,
+          "think_chars": 804
+        },
+        "lis": {
+          "category": "coding",
+          "title": "Longest increasing subseq.",
+          "kind": "code",
+          "passed": true,
+          "detail": "all tests pass",
+          "answer": "```python\ndef lis_length(nums):\n    \"\"\"Return the length of the longest strictly increasing subsequence in nums.\"\"\"\n    if not nums:\n        return 0\n\n    # tails[i] = smallest tail element for an increasing subsequence of length i+1\n    tails = []\n\n    import bisect\n    for num in nums:\n        idx = bisect.bisect_left(tails, num)\n        if idx == len(tails):\n            tails.append(num)\n        else:\n            tails[idx] = num\n\n    return len(tails)\n```",
+          "tps": 57.0,
+          "toks": 268,
+          "think_chars": 674
+        },
+        "spiral": {
+          "category": "coding",
+          "title": "Spiral matrix order",
+          "kind": "code",
+          "passed": false,
+          "detail": "\u001b[1;35mAssertionError\u001b[0m",
+          "answer": "```python\ndef spiral_order(matrix):\n    \"\"\"Return the elements of a 2D matrix in clockwise spiral order starting from top-left.\"\"\"\n    if not matrix or not matrix[0]:\n        return []\n\n    result = []\n    top, bottom = 0, len(matrix) - 1\n    left, right = 0, len(matrix[0]) - 1\n\n    while top <= bottom and left <= right:\n        # Traverse the top row from left to right\n        for i in range(left, right + 1):\n            result.append(matrix[top][i])\n        top += 1\n\n        # Traverse the right column from top to bottom\n        for i in range(top, bottom + 1):\n            result.append(matrix[i][right])\n        right -= 1\n\n        # Traverse the bottom row from right to left (if still valid)\n        if top <= bottom:\n            for i in range(right, left - 1, -1):\n                result.append(matrix[bottom][i])\n            bottom -= 1\n\n        # Traverse the left column from bottom to top (if still valid)\n        if left <= right:\n            for i in range(bottom, left - 1, -1):\n                result.append(matrix[i][left])\n            left += 1\n\n    return result\n```",
+          "tps": 56.1,
+          "toks": 1185,
+          "think_chars": 2966
+        },
+        "rpn": {
+          "category": "coding",
+          "title": "Evaluate RPN",
+          "kind": "code",
+          "passed": true,
+          "detail": "all tests pass",
+          "answer": "```python\ndef eval_rpn(tokens):\n    stack = []\n\n    for token in tokens:\n        if token in ('+', '-', '*', '/'):\n            b = stack.pop()\n            a = stack.pop()\n\n            if token == '+':\n                stack.append(a + b)\n            elif token == '-':\n                stack.append(a - b)\n            elif token == '*':\n                stack.append(a * b)\n            elif token == '/':\n                # Truncate toward zero (not floor division)\n                result = int(a / b)\n                stack.append(result)\n        else:\n            stack.append(int(token))\n\n    return stack[0]\n```",
+          "tps": 54.6,
+          "toks": 997,
+          "think_chars": 3017
+        },
+        "pricing": {
+          "category": "frontend",
+          "title": "Pricing page (design)",
+          "kind": "html",
+          "passed": false,
+          "detail": "render is blank (nothing painted)",
+          "answer": "```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\" />\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n<title>SaaS Pricing</title>\n<style>\n  /* --- RESET & BASE STYLES --- */\n  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }\n\n  :root {\n    --primary: #4f46e5;       /* Indigo */\n    --primary-hover: #4338ca;\n    --secondary: #ec4899;     /* Pink accent for badges */\n    --bg-body: #f8fafc;      /* Light slate background */\n    --text-main: #0f172a;    /* Near black */\n    --text-muted: #64748b;   /* Medium gray */\n    --border-color: #e2e8f0; /* Subtle border */\n    --white: #ffffff;\n    --radius-card: 16px;\n    --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);\n    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);\n    --shadow-lg: 0 10px 30px -5px rgba(79, 70, 229, 0.15);\n    --font-stack: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;\n  }\n\n  body {\n    font-family: var(--font-stack);\n    background-color: var(--bg-body);\n    color: var(--text-main);\n    line-height: 1.6;\n    -webkit-font-smoothing: antialiased;\n    min-height: 100vh;\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n  }\n\n  /* --- LAYOUT CONTAINER --- */\n  .container {\n    width: 100%;\n    max-width: 1200px;\n    padding: 60px 24px;\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n    gap: 48px;\n  }\n\n  /* --- HERO SECTION --- */\n  .hero { text-align: center; max-width: 600px; }\n  \n  .hero h1 {\n    font-size: 2.5rem;\n    font-weight: 800;\n    letter-spacing: -0.03em;\n    margin-bottom: 16px;\n    background: linear-gradient(135deg, var(--text-main), var(--primary));\n    -webkit-background-clip: text;\n    -webkit-text-fill-color: transparent;\n    background-clip: text;\n  }\n\n  .hero p {\n    font-size: 1.125rem;\n    color: var(--text-muted);\n    max-width: 500px;\n    margin: 0 auto;\n  }\n\n  /* --- PRICING SWITCH (Visual Only) --- */\n  .billing-toggle {\n    display: flex;\n    align-items: center;\n    gap: 12px;\n    background: var(--white);\n    border: 1px solid var(--border-color);\n    padding: 6px 16px;\n    border-radius: 999px;\n    font-size: 0.875rem;\n    color: var(--text-muted);\n    margin-bottom: 24px;\n  }\n\n  .billing-toggle input { cursor: pointer; accent-color: var(--primary); transform: scale(1.2); }\n  .billing-toggle label { font-weight: 600; color: var(--text-main); }\n\n  /* --- PRICING GRID --- */\n  .pricing-grid {\n    display: flex;\n    gap: 24px;\n    align-items: stretch; /* Equal height cards */\n    width: 100%;\n    justify-content: center;\n  }\n\n  /* --- CARD BASE STYLES --- */\n  .card {\n    background: var(--white);\n    border-radius: var(--radius-card);\n    padding: 40px 32px;\n    display: flex;\n    flex-direction: column;\n    position: relative;\n    transition: transform 0.3s ease, box-shadow 0.3s ease;\n    border: 1px solid var(--border-color);\n    overflow: hidden; /* For the top ribbon */\n  }\n\n  .card:hover {\n    transform: translateY(-6px);\n    box-shadow: var(--shadow-lg) !important;\n  }\n\n  /* --- PRO HIGHLIGHTS --- */\n  .pro-card { border-color: transparent; }\n  \n  .ribbon {\n    position: absolute;\n    top: 0; left: 0; right: 0;\n    height: 5px;\n    background: linear-gradient(90deg, var(--primary), #818cf8);\n  }\n\n  .badge {\n    display: inline-block;\n    font-size: 0.75rem;\n    font-weight: 800;\n    text-transform: uppercase;\n    letter-spacing: 0.05em;\n    color: var(--white);\n    padding: 4px 12px;\n    border-radius: 999px;\n    margin-bottom: 20px;\n    width: fit-content;\n  }\n\n  .badge-popular { background-color: var(--secondary); box-shadow: 0 2px 8px rgba(236, 72, 153, 0.4); }\n  .badge-enterprise { background-color: #0f172a; }\n\n  /* --- TYPOGRAPHY INSIDE CARDS --- */\n  .plan-name { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; color: var(--text-main); }\n  \n  .price-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border-color); }\n  .currency { font-size: 1.5rem; font-weight: 700; color: var(--text-main); }\n  .amount { font-size: 3rem; font-weight: 900; letter-spacing: -0.04em; color: var(--primary); line-height: 1; }\n  .period { font-size: 1rem; color: var(--text-muted); font-weight: 500; }\n\n  /* --- FEATURES LIST --- */\n  .features-list { list-style: none; margin-bottom: 32px; flex-grow: 1; }\n\n  .feature-item {\n    display: flex;\n    align-items: center;\n    gap: 14px;\n    padding: 10px 0;\n    font-size: 0.95rem;\n    color: var(--text-muted);\n    border-bottom: 1px solid #f1f5f9;\n  }\n\n  .feature-item:last-child { border-bottom: none; }\n\n  /* Custom Check Icon SVG */\n  .check-icon {\n    width: 20px; height: 20px;\n    flex-shrink: 0;\n    color: var(--primary);\n  }\n\n  /* --- BUTTONS --- */\n  .btn {\n    display: block;\n    width: 100%;\n    padding: 14px;\n    border-radius: 12px;\n    font-size: 1rem;\n    font-weight: 700;\n    text-align: center;\n    cursor: pointer;\n    transition: all 0.2s ease;\n    text-decoration: none;\n    border: none;\n  }\n\n  .btn-primary {\n    background-color: var(--primary);\n    color: var(--white);\n    box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);\n  }\n  .btn-primary:hover { background-color: var(--primary-hover); transform: scale(1.02); }\n\n  .btn-outline {\n    background-color: transparent;\n    color: var(--text-main);\n    border: 2px solid var(--border-color);\n  }\n  .btn-outline:hover { border-color: var(--text-muted); background-color: #f8fafc; }\n\n  /* --- FOOTER / CTA --- */\n  .footer-cta { text-align: center; padding-bottom: 60px; }\n  .footer-cta h2 { font-size: 1.75rem; margin-bottom: 12px; }\n  .footer-cta p { color: var(--text-muted); max-width: 400px; margin: 0 auto 24px; }\n\n  /* --- RESPONSIVE --- */\n  @media (max-width: 86",
+          "tps": 55.2,
+          "toks": 4096,
+          "think_chars": 7630
+        },
+        "threejs": {
+          "category": "frontend",
+          "title": "Three.js 3D scene",
+          "kind": "html",
+          "passed": true,
+          "detail": "structure ok",
+          "answer": "```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <title>Three.js Interactive 3D Scene</title>\n    <style>\n        body {\n            margin: 0;\n            padding: 0;\n            overflow: hidden;\n            background-color: #111118; /* Dark deep blue-black */\n            font-family: sans-serif;\n        }\n        canvas {\n            display: block; /* Removes scrollbars from inline elements */\n        }\n    </style>\n</head>\n<body>\n\n<!-- Load Three.js via a single classic script tag (CDN) -->\n<script src=\"https://unpkg.com/three@0.160.0/build/three.min.js\"></script>\n\n<script>\n    // --- 1. SCENE SETUP ---\n    \n    // Create the scene, camera, and renderer\n    const scene = new THREE.Scene();\n    \n    // PerspectiveCamera: fov=75, aspect ratio based on window, near=0.1, far=100\n    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);\n    camera.position.z = 5;\n\n    // WebGLRenderer: antialias=true for smooth edges\n    const renderer = new THREE.WebGLRenderer({ antialias: true });\n    renderer.setSize(window.innerWidth, window.innerHeight);\n    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio on high-DPI screens\n    document.body.appendChild(renderer.domElement);\n\n    // --- 2. LIGHTING ---\n    \n    // Ambient light for base visibility\n    const ambientLight = new THREE.AmbientLight(0x404060, 1.5); \n    scene.add(ambientLight);\n\n    // Point lights for color and depth\n    const pointLight1 = new THREE.PointLight(0xff00cc, 2, 30);\n    pointLight1.position.set(5, 5, 5);\n    scene.add(pointLight1);\n\n    const pointLight2 = new THREE.PointLight(0x00ccff, 2, 30);\n    pointLight2.position.set(-5, -5, 5);\n    scene.add(pointLight2);\n\n    // --- 3. OBJECTS ---\n\n    // Object A: A complex Torus Knot with a shiny material\n    const torusKnotGeo = new THREE.TorusKnotGeometry(1.2, 0.4, 128, 32);\n    const torusKnotMat = new THREE.MeshPhongMaterial({ \n        color: 0xff66aa, \n        shininess: 50,\n        specular: 0xffffff\n    });\n    const torusKnot = new THREE.Mesh(torusKnotGeo, torusKnotMat);\n    scene.add(torusKnot);\n\n    // Object B: A wireframe Icosahedron floating in the background\n    const icoGeo = new THREE.IcosahedronGeometry(2.5, 1);\n    const icoMat = new THREE.MeshPhongMaterial({ \n        color: 0x4488ff, \n        wireframe: true,\n        transparent: true,\n        opacity: 0.3\n    });\n    const icosahedron = new THREE.Mesh(icoGeo, icoMat);\n    scene.add(icosahedron);\n\n    // --- 4. ANIMATION LOOP ---\n\n    let time = 0;\n\n    function animate() {\n        requestAnimationFrame(animate);\n        \n        time += 0.01;\n\n        // Rotate the Torus Knot on multiple axes\n        torusKnot.rotation.x += 0.02;\n        torusKnot.rotation.y += 0.015;\n\n        // Rotate the Icosahedron in the opposite direction (and slower)\n        icosahedron.rotation.z -= 0.008;\n        icosahedron.rotation.x += 0.004;\n\n        // Subtle \"breathing\" scale effect on the torus knot\n        const scale = 1 + Math.sin(time * 2) * 0.05;\n        torusKnot.scale.set(scale, scale, scale);\n\n        // Update lights to follow objects slightly for dynamic shadows/coloring\n        pointLight1.position.x = Math.cos(time) * 8;\n        pointLight1.position.z = Math.sin(time) * 8;\n\n        renderer.render(scene, camera);\n    }\n\n    animate();\n\n    // --- 5. WINDOW RESIZE HANDLER ---\n    \n    window.addEventListener('resize', () => {\n        // Update camera aspect ratio\n        camera.aspect = window.innerWidth / window.innerHeight;\n        camera.updateProjectionMatrix();\n\n        // Resize renderer canvas\n        renderer.setSize(window.innerWidth, window.innerHeight);\n    });\n\n</script>\n</body>\n</html>\n```",
+          "tps": 55.7,
+          "toks": 2394,
+          "think_chars": 4664
+        },
+        "factorial": {
+          "category": "math",
+          "title": "Smallest n: 10^10 | n!",
+          "kind": "text",
+          "passed": false,
+          "detail": "last=1 expected=45",
+          "answer": "To find the smallest positive integer $n$ such that $n!$ is divisible by $10^{10}$, we must determine when the prime factorization of $n!$ contains at least ten factors of both 2 and 5 (since $10 = 2 \\times 5$, so $10^{10} = 2^{10} \\times 5^{10}$).\n\nIn any factorial $n!$, the number of factors of 2 is always greater than or equal to the number of factors of 5 (because every even number contributes a factor of 2, but only multiples of 5 contribute a factor of 5). Therefore, the limiting condition is that the exponent of 5 in the prime factorization of $n!$ must be at least 10.\n\nWe use **Legendre's Formula** to find the exponent of a prime $p$ in $n!$:\n$$E_p(n!) = \\sum_{k=1}^{\\infty} \\left\\lfloor \\frac{n}{p^k} \\right",
+          "tps": 55.2,
+          "toks": 2560,
+          "think_chars": 5606
+        },
+        "mississippi": {
+          "category": "math",
+          "title": "Arrangements of MISSISSIPPI",
+          "kind": "text",
+          "passed": false,
+          "detail": "no number found",
+          "answer": "",
+          "tps": 54.7,
+          "toks": 2560,
+          "think_chars": 5495
+        },
+        "knaves": {
+          "category": "logic",
+          "title": "Knights & knaves",
+          "kind": "text",
+          "passed": false,
+          "detail": "missing ['a\\\\s*=\\\\s*knight', 'b\\\\s*=\\\\s*knave']",
+          "answer": "",
+          "tps": 51.7,
+          "toks": 2560,
+          "think_chars": 8374
+        },
+        "digits": {
+          "category": "logic",
+          "title": "Digit puzzle",
+          "kind": "text",
+          "passed": false,
+          "detail": "no number found",
+          "answer": "",
+          "tps": 52.7,
+          "toks": 2560,
+          "think_chars": 7077
+        },
+        "lipogram": {
+          "category": "constraint",
+          "title": "E-less sentence",
+          "kind": "text",
+          "passed": false,
+          "detail": "no sentence of >= 8 words",
+          "answer": "",
+          "tps": 53.9,
+          "toks": 2560,
+          "think_chars": 6712
+        },
+        "count_a": {
+          "category": "counting",
+          "title": "Adversarial letter count",
+          "kind": "text",
+          "passed": false,
+          "detail": "last=9 expected=10",
+          "answer": "9",
+          "tps": 55.4,
+          "toks": 1161,
+          "think_chars": 2641
+        }
+      },
+      "score": 4,
+      "total": 12,
+      "avg_tps": 54.9
+    },
+    "leonsarmiento/Ornith-1.0-35B-5bit-mlx": {
+      "label": "Ornith-1.0-35B-5bit-mlx",
+      "spec": {
+        "label": "Ornith-1.0-35B-5bit-mlx",
+        "id": "leonsarmiento/Ornith-1.0-35B-5bit-mlx",
+        "kind": "Dense",
+        "quant": "5-bit",
+        "size": "25.2 GB",
+        "loader": "mlx",
+        "_bytes": 25234264105
+      },
+      "load_s": 3.4,
+      "items": {
+        "edit_distance": {
+          "category": "coding",
+          "title": "Levenshtein distance",
+          "kind": "code",
+          "passed": true,
+          "detail": "all tests pass",
+          "answer": "```python\ndef min_edit_distance(a: str, b: str) -> int:\n    m, n = len(a), len(b)\n    \n    # dp[i][j] holds the edit distance between a[:i] and b[:j]\n    dp = [[0] * (n + 1) for _ in range(m + 1)]\n    \n    # Base cases: transforming to/from an empty string\n    for i in range(m + 1):\n        dp[i][0] = i\n    for j in range(n + 1):\n        dp[0][j] = j\n        \n    for i in range(1, m + 1):\n        for j in range(1, n + 1):\n            if a[i - 1] == b[j - 1]:\n                # Characters match: no extra cost\n                dp[i][j] = dp[i - 1][j - 1]\n            else:\n                # Cost of deletion, insertion, or substitution (all = 1)\n                dp[i][j] = 1 + min(\n                    dp[i - 1][j],      # deletion\n                    dp[i][j - 1],      # insertion\n                    dp[i - 1][j - 1]   # substitution\n                )\n                \n    return dp[m][n]\n```",
+          "tps": 68.1,
+          "toks": 1825,
+          "think_chars": 5217
+        },
+        "lis": {
+          "category": "coding",
+          "title": "Longest increasing subseq.",
+          "kind": "code",
+          "passed": true,
+          "detail": "all tests pass",
+          "answer": "```python\nimport bisect\n\ndef lis_length(nums):\n    tails = []\n    for x in nums:\n        idx = bisect.bisect_left(tails, x)\n        if idx == len(tails):\n            tails.append(x)\n        else:\n            tails[idx] = x\n    return len(tails)\n```",
+          "tps": 68.2,
+          "toks": 1640,
+          "think_chars": 5475
+        },
+        "spiral": {
+          "category": "coding",
+          "title": "Spiral matrix order",
+          "kind": "code",
+          "passed": false,
+          "detail": "\u001b[1;35mSyntaxError\u001b[0m: \u001b[35m'(' was never closed\u001b[0m",
+          "answer": "```python\ndef spiral_order(matrix):\n    if not matrix or not matrix[0]:\n        return []\n    \n    result = []\n    top, bottom = 0, len(matrix) - 1\n    left, right = 0, len(matrix[0]) - 1\n    \n    while top <= bottom and left <= right:\n        # Traverse top row (left \u2192 right)\n        for i in range(left, right + 1):\n            result.append(matrix[top][i])\n        top += 1\n        \n        # Traverse right column (top \u2192 bottom)\n        for i in range(top, bottom + 1):\n            result.append(matrix[i][right])\n        right -= 1\n        \n        # Traverse bottom row (right \u2192 left)\n        if top <= bottom:\n            for i in range(right, left - 1, -1",
+          "tps": 68.1,
+          "toks": 2560,
+          "think_chars": 7258
+        },
+        "rpn": {
+          "category": "coding",
+          "title": "Evaluate RPN",
+          "kind": "code",
+          "passed": true,
+          "detail": "all tests pass",
+          "answer": "```python\ndef eval_rpn(tokens):\n    stack = []\n    for token in tokens:\n        if token == '+':\n            b, a = stack.pop(), stack.pop()\n            stack.append(a + b)\n        elif token == '-':\n            b, a = stack.pop(), stack.pop()\n            stack.append(a - b)\n        elif token == '*':\n            b, a = stack.pop(), stack.pop()\n            stack.append(a * b)\n        elif token == '/':\n            b, a = stack.pop(), stack.pop()\n            # int() truncates toward zero, unlike // which floors\n            stack.append(int(a / b))\n        else:\n            stack.append(int(token))\n    return stack[0]\n```",
+          "tps": 68.8,
+          "toks": 1717,
+          "think_chars": 5560
+        },
+        "pricing": {
+          "category": "frontend",
+          "title": "Pricing page (design)",
+          "kind": "html",
+          "passed": false,
+          "detail": "missing: 3 tiers, \"most popular\", \u22653 CTAs",
+          "answer": "```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n<title>Pricing \u2014 CloudSync</title>\n<style>\n  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}\n\n  :root {\n    --bg: #f4f6fb;\n    --card-bg: #ffffff;\n    --text-primary: #1a1d2e;\n    --text-secondary: #5f6580;\n    --text-muted: #9397ad;\n    --accent: #6c5ce7;\n    --accent-light: #a29bfe;\n    --accent-gradient: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);\n    --pro-border: #6c5ce7;\n    --pro-bg-tint: rgba(108, 92, 231, 0.04);\n    --success: #00b894;\n    --radius: 20px;\n    --shadow-sm: 0 2px 8px rgba(26,29,46,0.06);\n    --shadow-md: 0 8px 30px rgba(26,29,46,0.10);\n    --shadow-lg: 0 20px 60px rgba(108,92,231,0.15), 0 8px 24px rgba(26,29,46,0.08);\n    --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);\n  }\n\n  html { font-size: 16px; -webkit-font-smoothing: antialiased; }\n\n  body {\n    font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif;\n    background: var(--bg);\n    color: var(--text-primary);\n    min-height: 100vh;\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n    justify-content: center;\n    padding: 60px 24px;\n    background-image:\n      radial-gradient(ellipse at 20% 0%, rgba(108,92,231,0.08) 0%, transparent 50%),\n      radial-gradient(ellipse at 80% 100%, rgba(162,155,254,0.08) 0%, transparent 50%);\n  }\n\n  .header {\n    text-align: center;\n    margin-bottom: 56px;\n    max-width: 560px;\n  }\n\n  .badge-top {\n    display: inline-block;\n    background: rgba(108,92,231,0.1);\n    color: var(--accent);\n    font-size: 0.75rem;\n    font-weight: 600;\n    letter-spacing: 0.06em;\n    text-transform: uppercase;\n    padding: 6px 14px;\n    border-radius: 100px;\n    margin-bottom: 20px;\n  }\n\n  .header h1 {\n    font-size: clamp(2rem, 5vw, 3rem);\n    font-weight: 800;\n    line-height: 1.15;\n    letter-spacing: -0.03em;\n    color: var(--text-primary);\n    margin-bottom: 16px;\n  }\n\n  .header h1 span {\n    background: var(--accent-gradient);\n    -webkit-background-clip: text;\n    -webkit-text-fill-color: transparent;\n    background-clip: text;\n  }\n\n  .header p {\n    font-size: 1.1rem;\n    line-height: 1.65;\n    color: var(--text-secondary);\n  }\n\n  .pricing-grid {\n    display: grid;\n    grid-template-columns: repeat(3, 1fr);\n    gap: 28px;\n    max-width: 1080px;\n    width: 100%;\n    align-items: start;\n  }\n\n  @media (max-width: 900px) {\n    .pricing-grid { grid-template-columns: 1fr; max-width: 440px; gap: 24px; }\n  }\n\n  /* \u2500\u2500 Card \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n  .card {\n    background: var(--card-bg);\n    border-radius: var(--radius);\n    padding: 40px 36px 36px;\n    position: relative;\n    box-shadow: var(--shadow-sm);\n    transition: transform var(--transition), box-shadow var(--transition);\n    border: 1.5px solid transparent;\n    display: flex;\n    flex-direction: column;\n  }\n\n  .card:hover {\n    transform: translateY(-4px);\n    box-shadow: var(--shadow-md);\n  }\n\n  /* \u2500\u2500 Pro card \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n  .card.pro {\n    border-color: var(--pro-border);\n    background-image: linear-gradient(var(--card-bg), var(--card-bg)) padding-box,\n                      var(--accent-gradient) border-box;\n    border: 2px solid transparent;\n    background-clip: padding-box, border-box;\n    transform: scale(1.04);\n    box-shadow: var(--shadow-lg);\n    z-index: 2;\n  }\n\n  .card.pro:hover {\n    transform: scale(1.04) translateY(-4px);\n    box-shadow: 0 28px 70px rgba(108,92,231,0.2), 0 12px 32px rgba(26,29,46,0.1);\n  }\n\n  @media (max-width: 900px) { .card.pro { transform: scale(1); } .card.pro:hover { transform: translateY(-4px); } }\n\n  /* \u2500\u2500 Popular ribbon \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n  .ribbon {\n    position: absolute;\n    top: -1px; left: 50%;\n    transform: translateX(-50%);\n    background: var(--accent-gradient);\n    color: #fff;\n    font-size: 0.7rem;\n    font-weight: 700;\n    letter-spacing: 0.08em;\n    text-transform: uppercase;\n    padding: 6px 22px;\n    border-radius: 0 0 12px 12px;\n    box-shadow: 0 4px 14px rgba(108,92,231,0.35);\n  }\n\n  /* \u2500\u2500 Plan icon \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n  .plan-icon {\n    width: 48px; height: 48px;\n    border-radius: 14px;\n    display: flex; align-items: center; justify-content: center;\n    font-size: 1.3rem;\n    margin-bottom: 20px;\n    background: rgba(108,92,231,0.08);\n    color: var(--accent);\n  }\n\n  .card.pro .plan-icon {\n    background: var(--accent-gradient);\n    color: #fff;\n  }\n\n  /* \u2500\u2500 Plan name & price \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n  .plan-name {\n    font-size: 1.05rem;\n    font-weight: 700;\n    color: var(--text-primary);\n    margin-bottom: 8px;\n  }\n\n  .price-row {\n    display: flex;\n    align-items: baseline;\n    gap: 4px;\n    margin-bottom: 6px;\n  }\n\n  .currency {\n    font-size: 1.3rem;\n    font-weight: 700;\n    color: var(--text-secondary);\n    align-self: flex-start;\n    margin-top: 8px;\n  }\n\n  .amount {\n    font-size: 3.4rem;\n    font-weight: 800;\n    letter-spacing: -0.04em;\n    line-height: 1;\n    color: var(--text-primary);\n  }\n\n  .card.pro .amount {\n    background: var(--accent-gradient);\n    -webkit-background-clip: text;\n    -webkit-text-fill-color: transparent;\n    background-clip: text;\n  }\n\n  .period {\n    font-size: 0.85rem;\n    color: var(--text-muted);\n    font-weight: 500;\n  }\n\n  .plan-desc {\n    font-size: 0.88rem;\n    line-height: 1.55;\n    color: var(--text-secondary);\n    margin-bottom: 28px;\n    min-height: 42px;\n  }\n\n  /* \u2500\u2500 Divider \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n  .divider {\n    height: 1px;\n    background: linear-gradient(90deg, transparent, rgba(108,92,231,0.15), transparent);\n    margin-bottom: 24px;\n  }\n\n  /* \u2500\u2500 Features \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n  .features { list-style: none; flex: 1; margin-bottom: 32px; }\n\n  .features li {\n    display: flex;\n    align-items: center;\n    gap: 12px;\n    padding: 9px 0;\n    font-size: 0.9rem;\n    color: var(--text-secondary);\n    line-height: 1.4;\n  }\n\n  .features li + li { border-top: 1px solid rgba(108,92,231,0.06); }\n\n  .check {\n    flex-shrink: 0;\n    width: 22px; height: 22px;\n    border-radius: 50%;\n    display: flex; align-items: center; justify-content: center;\n    background: rgba(0,184,148,0.1);\n    color: var(--success);\n    font-size: 0.7rem;\n  }\n\n  .features li.disabled { color: var(--text-muted); }\n  .features li.disabled .check {\n    background: rgba(147,151,173,0.12);\n    color: var(--text-muted);\n  }\n\n  /* \u2500\u2500 CTA Button \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n  .cta {\n    display: block;\n    width: 100%;\n    padding: 15px 24px;\n    border-radius: 12px;\n    font-size: 0.92rem;\n    font-weight: 650;\n    text-align: center;\n    text-decoration: none;\n    cursor: pointer;\n    border: none;\n    transition: all var(--transition);\n    letter-spacing: 0.01em;\n  }\n\n  .cta-outline {\n    background: transparent;\n    color: var(--accent);\n    border: 1.5px solid rgba(108,92,231,0.25);\n  }\n\n  .cta-outline:hover {\n    background: rgba(108,92,231,0.06);\n    border-color: var(--accent);\n    box-shadow: 0 4px 16px rgba(108,92,231,0.15);\n  }\n\n  .cta-primary {\n    background: var(--accent-gradient);\n    color: #fff;\n    border: none;\n    box-shadow: 0 6px 24px rgba(108,92,231,0.3);\n  }\n\n  .cta-primary:hover {\n    box-shadow: 0 10px 36px rgba(108,92,231,0.45);\n    transform: translateY(-1px);\n  }\n\n  .cta-dark {\n    background: var(--text-primary);\n    color: #fff;\n    border: none;\n  }\n\n  .cta-dark:hover {\n    background: #2a2d3e;\n    box-shadow: 0 8px 24px rgba(26,29,46,0.25);\n    transform: translateY(-1px);\n  }\n\n  /* \u2500\u2500 Footer note \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n  .footer-note {\n    margin-top: 48px;\n    text-align: center;\n    font-size: 0.82rem;\n    color: var(--text-muted);\n    line-height: 1.6;\n    max-width: 500px;\n  }\n\n  .footer-note a {\n    color: var(--accent);\n    text-decoration: none;\n    font-weight: 500;\n  }\n\n  .footer-note a:hover { text-decoration: underline; }\n</style>\n</head>\n<body>\n\n  <div class=\"header\">\n    <div class=\"badge-top\">Simple, transparent pricing</div>\n    <h1>Choose the plan<br>that <span>scales with you</span></h1>\n    <p>No hidden fees. No surprises. Start free and upgrade whenever you need more power.</p>\n  </div>\n\n  <div class=\"pricing-grid\">\n\n    <!-- \u2500\u2500\u2500 Basic \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 -->\n    <div class=\"card\">\n      <div class=\"plan-icon\">\n        <svg width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"M11 7v4l3 3\"/></svg>\n      </div>\n      <div class=\"plan-name\">Basic</div>\n      <div class=\"price-row\">\n        <span class=\"currency\">$</span>\n        <span class=\"amount\">9</span>\n        <span class=\"period\">/ month</span>\n      </div>\n      <p class=\"plan-desc\">Perfect for individuals and small projects getting started.</p>\n      <div class=\"divider\"></div>\n      <ul class=\"features\">\n        <li><span class=\"check\"><svg width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"2 6 5 9 10 3\"/></svg></span>Up to 5 projects</li>\n        <li><span class=\"check\"><svg width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"2 6 5 9 10 3\"/></svg></span>10 GB cloud storage</li>\n        <li><span class=\"check\"><svg width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"2 6 5 9 10 3\"/></svg></span>Basic analytics dashboard</li>\n        <li><span class=\"check\"><svg width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"2 6 5 9 10 3\"/></svg></span>Email support (48h response)</li>\n        <li class=\"disabled\"><span class=\"check\"><svg width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><line x1=\"3\" y1=\"3\" x2=\"9\" y2=\"9\"/><line x1=\"9\" y1=\"3\" x2=\"3\" y2=\"9\"/></svg></span>Custom integrations</li>\n        <li class=\"disabled\"><span class=\"check\"><svg width",
+          "tps": 66.5,
+          "toks": 4096,
+          "think_chars": 1162
+        },
+        "threejs": {
+          "category": "frontend",
+          "title": "Three.js 3D scene",
+          "kind": "html",
+          "passed": true,
+          "detail": "structure ok",
+          "answer": "```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<title>Three.js Animated 3D Scene</title>\n<style>\n* { margin: 0; padding: 0; box-sizing: border-box; }\nbody { overflow: hidden; background: #000; }\ncanvas { display: block; }\n#info {\nposition: absolute; top: 12px; left: 12px;\ncolor: #fff; font-family: 'Segoe UI', Arial, sans-serif;\nfont-size: 13px; background: rgba(0,0,0,0.5);\npadding: 8px 14px; border-radius: 6px;\npointer-events: none; line-height: 1.5;\n}\n</style>\n</head>\n<body>\n\n<div id=\"info\">\ud83d\uddb1\ufe0f Drag to orbit &nbsp;|&nbsp; Scroll to zoom &nbsp;|&nbsp; Right-drag to pan</div>\n\n<script src=\"https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js\"></script>\n<script src=\"https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js\"></script>\n\n<script>\n(function () {\n  // \u2500\u2500 Scene, Camera, Renderer \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  const scene = new THREE.Scene();\n  scene.fog = new THREE.FogExp2(0x0a0a1a, 0.035);\n\n  const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 200);\n  camera.position.set(4, 3, 6);\n\n  const renderer = new THREE.WebGLRenderer({ antialias: true });\n  renderer.setSize(innerWidth, innerHeight);\n  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));\n  renderer.shadowMap.enabled = true;\n  renderer.shadowMap.type = THREE.PCFSoftShadowMap;\n  renderer.toneMapping = THREE.ACESFilmicToneMapping;\n  renderer.toneMappingExposure = 1.2;\n  document.body.appendChild(renderer.domElement);\n\n  // \u2500\u2500 Controls \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  const controls = new THREE.OrbitControls(camera, renderer.domElement);\n  controls.enableDamping = true;\n  controls.dampingFactor = 0.06;\n  controls.minDistance = 2;\n  controls.maxDistance = 30;\n\n  // \u2500\u2500 Lighting \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  const ambientLight = new THREE.AmbientLight(0x404060, 0.5);\n  scene.add(ambientLight);\n\n  const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);\n  dirLight.position.set(8, 12, 6);\n  dirLight.castShadow = true;\n  dirLight.shadow.mapSize.set(1024, 1024);\n  scene.add(dirLight);\n\n  const pointLight1 = new THREE.PointLight(0xff6030, 1.5, 20);\n  pointLight1.position.set(-4, 3, 2);\n  scene.add(pointLight1);\n\n  const pointLight2 = new THREE.PointLight(0x3080ff, 1.5, 20);\n  pointLight2.position.set(4, -1, -3);\n  scene.add(pointLight2);\n\n  // \u2500\u2500 Main Torus Knot \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  const torusKnotGeo = new THREE.TorusKnotGeometry(1.5, 0.45, 128, 32);\n  const torusKnotMat = new THREE.MeshStandardMaterial({\n    color: 0xcc44ff,\n    metalness: 0.6,\n    roughness: 0.25,\n    emissive: 0x220033,\n  });\n  const torusKnot = new THREE.Mesh(torusKnotGeo, torusKnotMat);\n  torusKnot.castShadow = true;\n  scene.add(torusKnot);\n\n  // \u2500\u2500 Orbiting Spheres \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  const spheres = [];\n  const sphereColors = [0xff3366, 0x33ff99, 0xffcc33, 0x33ccff, 0xff6633];\n  for (let i = 0; i < 5; i++) {\n    const geo = new THREE.SphereGeometry(0.18 + Math.random() * 0.12, 24, 24);\n    const mat = new THREE.MeshStandardMaterial({\n      color: sphereColors[i],\n      metalness: 0.8,\n      roughness: 0.2,\n      emissive: sphereColors[i],\n      emissiveIntensity: 0.3,\n    });\n    const mesh = new THREE.Mesh(geo, mat);\n    scene.add(mesh);\n    spheres.push({\n      mesh,\n      radius: 2.8 + Math.random() * 1.5,\n      speed: 0.4 + Math.random() * 0.6,\n      offset: (i / 5) * Math.PI * 2,\n      tilt: (Math.random() - 0.5) * 1.2,\n    });\n  }\n\n  // \u2500\u2500 Particle Ring \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  const particleCount = 600;\n  const positions = new Float32Array(particleCount * 3);\n  const pColors = new Float32Array(particleCount * 3);\n  for (let i = 0; i < particleCount; i++) {\n    const angle = Math.random() * Math.PI * 2;\n    const r = 3.5 + Math.random() * 4;\n    positions[i * 3]     = Math.cos(angle) * r;\n    positions[i * 3 + 1] = (Math.random() - 0.5) * 1.5;\n    positions[i * 3 + 2] = Math.sin(angle) * r;\n    const c = new THREE.Color().setHSL(0.7 + Math.random() * 0.3, 0.8, 0.6);\n    pColors[i * 3]     = c.r;\n    pColors[i * 3 + 1] = c.g;\n    pColors[i * 3 + 2] = c.b;\n  }\n  const particleGeo = new THREE.BufferGeometry();\n  particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));\n  particleGeo.setAttribute('color', new THREE.BufferAttribute(pColors, 3));\n  const particleMat = new THREE.PointsMaterial({\n    size: 0.06,\n    vertexColors: true,\n    transparent: true,\n    opacity: 0.8,\n    blending: THREE.AdditiveBlending,\n    depthWrite: false,\n  });\n  const particles = new THREE.Points(particleGeo, particleMat);\n  scene.add(particles);\n\n  // \u2500\u2500 Ground Plane (shadow receiver) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  const groundGeo = new THREE.PlaneGeometry(40, 40);\n  const groundMat = new THREE.MeshStandardMaterial({\n    color: 0x111122,\n    metalness: 0.3,\n    roughness: 0.8,\n  });\n  const ground = new THREE.Mesh(groundGeo, groundMat);\n  ground.rotation.x = -Math.PI / 2;\n  ground.position.y = -2.5;\n  ground.receiveShadow = true;\n  scene.add(ground);\n\n  // \u2500\u2500 Mouse interaction: color shift on hover \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  let targetHue = 0.78;\n  const mouse = new THREE.Vector2();\n  window.addEventListener('mousemove', (e) => {\n    mouse.x = (e.clientX / innerWidth) * 2 - 1;\n    mouse.y = -(e.clientY / innerHeight) * 2 + 1;\n    targetHue = ((mouse.x + 1) * 0.5 + performance.now() * 0.00003) % 1;\n  });\n\n  // \u2500\u2500 Animation Loop \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  const clock = new THREE.Clock();\n\n  function animate() {\n    requestAnimationFrame(animate);\n    const t = clock.getElapsedTime();\n\n    // Rotate main object\n    torusKnot.rotation.x = t * 0.3;\n    torusKnot.rotation.y = t * 0.5;\n\n    // Hue shift based on mouse\n    torusKnotMat.color.setHSL(targetHue, 0.7, 0.5);\n    torusKnotMat.emissive.setHSL((targetHue + 0.1) % 1, 0.6, 0.12);\n\n    // Orbiting spheres\n    for (const s of spheres) {\n      const a = t * s.speed + s.offset;\n      s.mesh.position.x = Math.cos(a) * s.radius;\n      s.mesh.position.z = Math.sin(a) * s.radius;\n      s.mesh.position.y = Math.sin(a * 0.7 + s.tilt) * 1.2 + Math.sin(t * 0.5) * 0.3;\n    }\n\n    // Animate lights\n    pointLight1.position.x = Math.sin(t * 0.8) * 5;\n    pointLight1.position.z = Math.cos(t * 0.8) * 5;\n    pointLight2.position.x = Math.cos(t * 0.6) * 4;\n    pointLight2.position.z = Math.sin(t * 0.6) * 4;\n\n    // Rotate particles slowly\n    particles.rotation.y = t * 0.05;\n\n    controls.update();\n    renderer.render(scene, camera);\n  }\n\n  animate();\n\n  // \u2500\u2500 Resize \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  window.addEventListener('resize', () => {\n    camera.aspect = innerWidth / innerHeight;\n    camera.updateProjectionMatrix();\n    renderer.setSize(innerWidth, innerHeight);\n  });\n})();\n</script>\n\n</body>\n</html>\n```",
+          "tps": 68.7,
+          "toks": 2605,
+          "think_chars": 984
+        },
+        "factorial": {
+          "category": "math",
+          "title": "Smallest n: 10^10 | n!",
+          "kind": "text",
+          "passed": false,
+          "detail": "no number found",
+          "answer": "",
+          "tps": 44.1,
+          "toks": 2560,
+          "think_chars": 6751
+        },
+        "mississippi": {
+          "category": "math",
+          "title": "Arrangements of MISSISSIPPI",
+          "kind": "text",
+          "passed": true,
+          "detail": "found 34650",
+          "answer": "To find the number of distinct arrangements of the letters in \"MISSISSIPPI,\" we use the formula for permutations of a multiset (a set with repeated elements).\n\n**1. Count the total letters and the frequency of each letter:**\nThe word **MISSISSIPPI** has 11 letters in total ($n = 11$).\n*   **M**: 1\n*   **I**: 4\n*   **S**: 4\n*   **P**: 2\n\n**2. Apply the formula:**\n$$ \\frac{n!}{n_1! \\cdot n_2! \\cdot ...} $$\n\nSubstituting our values:\n$$ \\frac{11!}{1! \\cdot 4! \\cdot 4! \\cdot 2!} $$\n\n**3. Calculate the factorials:**\n*   $11! = 39,916,800$\n*   $4! = 24$\n*   $2! = 2$\n*   $1! = 1$\n\n$$ \\frac{39,916,800}{1 \\cdot 24 \\cdot 24 \\cdot 2} $$\n$$ \\frac{39,916,800}{1,152} $$\n\n**4. Final Result:**\n$$ 34,650 $$\n\nThere are **34,650** distinct arrangements.",
+          "tps": 50.9,
+          "toks": 2494,
+          "think_chars": 5375
+        },
+        "knaves": {
+          "category": "logic",
+          "title": "Knights & knaves",
+          "kind": "text",
+          "passed": true,
+          "detail": "all patterns matched",
+          "answer": "Let's analyze the statements using formal logic:\n\n- Let `A` be true if A is a knight, false if A is a knave.\n- Let `B` be true if B is a knight, false if B is a knave.\n- Knights always make true statements; knaves always make false ones. Therefore, a person's type matches the truth value of their statement.\n\n**A's statement:** \"B is a knave.\"\nThis means: `A \u2194 \u00acB`\n\n**B's statement:** \"Neither A nor B is a knave\" (i.e., both are knights).\nThis means: `B \u2194 (A \u2227 B)`\n\nNow, test the possibilities:\n1. **If A is a knight:** His statement is true \u2192 B is a knave. If B is a knave, his statement must be false. B claims both are knights, but since B is actually a knave, that claim is indeed false. This is fully consistent. \u2705\n2. **If A is a knave:** His statement is false \u2192 B is actually a knight. But if B is a knight, his statement must be true, meaning neither is a knave. This contradicts our assumption that A is a knave. \u274c\n\nThus, the only consistent scenario is that A is a knight and B is a knave.\n\nA=knight, B=knave.",
+          "tps": 40.6,
+          "toks": 1469,
+          "think_chars": 3697
+        },
+        "digits": {
+          "category": "logic",
+          "title": "Digit puzzle",
+          "kind": "text",
+          "passed": true,
+          "detail": "found 452",
+          "answer": "The number is **452**. \n\n**Verification:**\n- Digits: hundreds = 4, tens = 5, units = 2\n- Sum: 4 + 5 + 2 = 11 \u2713\n- Hundreds digit (4) is twice the units digit (2) \u2713\n- Tens digit (5) is three more than the units digit (2) \u2713\n- Ends in 2, so it's even \u2713",
+          "tps": 42.0,
+          "toks": 1410,
+          "think_chars": 3787
+        },
+        "lipogram": {
+          "category": "constraint",
+          "title": "E-less sentence",
+          "kind": "text",
+          "passed": false,
+          "detail": "no sentence of >= 8 words",
+          "answer": "",
+          "tps": 56.8,
+          "toks": 2560,
+          "think_chars": 7312
+        },
+        "count_a": {
+          "category": "counting",
+          "title": "Adversarial letter count",
+          "kind": "text",
+          "passed": true,
+          "detail": "found 10",
+          "answer": "10",
+          "tps": 65.4,
+          "toks": 993,
+          "think_chars": 2301
+        }
+      },
+      "score": 8,
+      "total": 12,
+      "avg_tps": 59.0
+    }
+  },
+  "ts": "2026-06-27"
+}

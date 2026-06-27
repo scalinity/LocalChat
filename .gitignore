@@ -1,6 +1,13 @@
 # Local model cache — huge (~69 GB), read-only, fetched via the add command
 models/
 
+# Standalone downloaded model weights (multi-GB safetensors) — same as above,
+# just not under models/.
+gemma-prompt-expander/
+
+# Debug artifacts from the Playwright MCP browser tooling
+.playwright-mcp/
+
 # Python virtualenv (recreate from requirements; contains the patched mlx_lm)
 .venv/
 
