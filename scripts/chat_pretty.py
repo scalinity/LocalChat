@@ -15,18 +15,16 @@ What it adds over `mlx_lm.chat`:
      Fixed by bounding live previews to the viewport and rendering the full
      answer exactly once after streaming completes. Use --raw for plain tokens.
   3. A repetition penalty (default 1.1) to curb genuine degenerate loops.
+  4. A prompt_toolkit input box: a hairline-framed editor with a live status
+     footer (ttfs · tok/s · tokens in/out · context window). The box erases
+     itself on Enter, leaving only the typed message in the scrollback.
 
 REPL commands:  q quit · r reset · h help · t toggle the thinking trace
 """
 import argparse
-import os
 import re
-import readline
-import select
 import sys
-import termios
 import time
-import tty
 
 import mlx.core as mx
 from mlx_lm.utils import load
@@ -34,237 +32,102 @@ from mlx_lm.generate import stream_generate
 from mlx_lm.models.cache import make_prompt_cache
 from mlx_lm.sample_utils import make_sampler, make_logits_processors
 
-from rich.console import Console
+from rich.console import Console, ConsoleOptions, RenderResult
 from rich.live import Live
 from rich.markdown import Markdown
+from rich.markup import escape
 from rich.rule import Rule
+from rich.segment import Segment
+from rich.text import Text
+
+from prompt_toolkit.application import Application, get_app
+from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.formatted_text import ANSI
+from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
+from prompt_toolkit.key_binding.defaults import load_key_bindings
+from prompt_toolkit.layout import Layout
+from prompt_toolkit.layout.containers import HSplit, Window
+from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
+from prompt_toolkit.layout.dimension import Dimension
+from prompt_toolkit.styles import Style
 
 DIM = "\x1b[2m"
 RESET = "\x1b[0m"
 
-# Terminals wrap bracketed paste (Cmd+V) in OSC 200/201. Without stripping,
-# those bytes become part of the prompt text and get fed to the model.
-_BRACKETED_PASTE_START = re.compile(r"\x1b\[200~")
-_BRACKETED_PASTE_END = re.compile(r"\x1b\[201~")
-_READAHEAD: list[str] = []
-# How long to wait for more paste bytes after the last chunk (large pastes
-# arrive in many kernel packets; stopping at the first ``\\n`` split them).
-_PASTE_IDLE = 0.15
 
+# ---------------------------------------------------------------------------
+# The input box.
+#
+# A self-contained prompt_toolkit screen drawn inline: a hairline top rule, the
+# ``›`` editor (which grows as you type or paste), a hairline bottom rule, and
+# the status footer beneath it. The whole box is erased the instant you press
+# Enter (``erase_when_done``) — the caller then echoes just the message, so the
+# scrollback stays clean (no border lines trailing each turn). prompt_toolkit
+# handles editing, wrapping, history and bracketed paste natively, which is why
+# the old hand-rolled stdin/readline machinery is gone.
+# ---------------------------------------------------------------------------
+class InputBox:
+    def __init__(self):
+        self.history = InMemoryHistory()
+        self._status = ""
+        self._style = Style.from_dict({"border": "fg:#444444", "prompt": "bold"})
 
-def _strip_bracketed_paste(text: str) -> str:
-    text = _BRACKETED_PASTE_START.sub("", text)
-    return _BRACKETED_PASTE_END.sub("", text)
+    def read(self, status: str) -> str:
+        self._status = status
 
+        def _accept(buff):
+            get_app().exit(result=buff.text)
+            return True
 
-def _emit_prompt():
-    sys.stdout.write("\x1b[1m›\x1b[0m ")
-    sys.stdout.flush()
+        # multiline=False ⇒ a typed Enter sends; pasted newlines are inserted as
+        # text (bracketed paste) rather than submitting line-by-line.
+        buf = Buffer(history=self.history, multiline=False, accept_handler=_accept)
 
+        def line_prefix(lineno, wrap_count):
+            return [("class:prompt", "› ")] if lineno == 0 else "  "
 
-def _read_line(prefill: str | None = None) -> str:
-    """Read one line; the › prompt must already be on screen."""
-    if prefill is not None:
-        buf = prefill
-
-        def _prefill_hook():
-            nonlocal buf
-            if buf is not None:
-                readline.insert_text(buf)
-                buf = None
-            if _READAHEAD:
-                readline.insert_text("".join(_READAHEAD))
-                _READAHEAD.clear()
-            readline.set_pre_input_hook()
-
-        readline.set_pre_input_hook(_prefill_hook)
-    elif _READAHEAD:
-        pending = "".join(_READAHEAD)
-
-        def _readahead_hook():
-            nonlocal pending
-            if pending:
-                readline.insert_text(pending)
-                pending = ""
-            readline.set_pre_input_hook()
-
-        readline.set_pre_input_hook(_readahead_hook)
-    try:
-        line = sys.stdin.readline()
-    finally:
-        readline.set_pre_input_hook()
-    if line == "":
-        raise EOFError
-    return _strip_bracketed_paste(line.rstrip("\n"))
-
-
-def _drain_stdin():
-    """Drop any bytes already waiting on stdin (e.g. trailing Enter after paste)."""
-    fileno = sys.stdin.fileno()
-    while select.select([fileno], [], [], 0)[0]:
-        if not os.read(fileno, 65536):
-            break
-
-
-def _slurp_stdin_burst() -> str:
-    """Read everything the terminal has already buffered (typical of Cmd+V)."""
-    fileno = sys.stdin.fileno()
-    parts: list[bytes] = []
-    while select.select([fileno], [], [], 0)[0]:
-        chunk = os.read(fileno, 65536)
-        if not chunk:
-            break
-        parts.append(chunk)
-    if not parts:
-        return ""
-    return b"".join(parts).decode("utf-8", errors="replace")
-
-
-def _wait_for_input_burst() -> str:
-    """Collect one paste/typing burst from stdin.
-
-    Do **not** stop at the first newline — multiline pastes often arrive as
-    many small writes, and returning early sends chunk 1 while chunks 2..N
-    become separate REPL turns (multiple model replies).
-    """
-    fileno = sys.stdin.fileno()
-    burst = _slurp_stdin_burst()
-    if not burst:
-        return ""
-    while True:
-        # Bracketed paste (Cmd+V): read until the closing marker.
-        if "\x1b[200~" in burst and "\x1b[201~" not in burst:
-            if select.select([fileno], [], [], _PASTE_IDLE)[0]:
-                burst += _slurp_stdin_burst()
-                continue
-            break
-        if select.select([fileno], [], [], _PASTE_IDLE)[0]:
-            burst += _slurp_stdin_burst()
-            continue
-        break
-    return burst
-
-
-def _looks_like_paste(burst: str) -> bool:
-    if "\x1b[200~" in burst or "\x1b[201~" in burst:
-        return True
-    if burst.count("\n") > 1:
-        return True
-    stripped = burst.rstrip("\r\n")
-    if len(stripped) > 400:
-        return True
-    if (burst.endswith("\n") or burst.endswith("\r\n")) and len(stripped) > 80:
-        return True
-    return False
-
-
-def _parse_bracketed_paste(raw: str) -> str | None:
-    if "\x1b[200~" not in raw or "\x1b[201~" not in raw:
-        return None
-    start = raw.index("\x1b[200~") + len("\x1b[200~")
-    end = raw.index("\x1b[201~")
-    return raw[start:end]
-
-
-def _confirm_line(prefill: str) -> str:
-    """Show ``prefill`` and wait for Enter without readline (paste-safe)."""
-    _drain_stdin()
-    sys.stdout.write(prefill)
-    sys.stdout.flush()
-    fd = sys.stdin.fileno()
-    old = termios.tcgetattr(fd)
-    buf = list(prefill)
-    try:
-        tty.setcbreak(fd)
-        while True:
-            ch = os.read(fd, 1)
-            if not ch:
-                raise EOFError
-            c = ch.decode("utf-8", errors="replace")
-            if c in "\n\r":
-                sys.stdout.write("\n")
-                sys.stdout.flush()
-                return "".join(buf)
-            if c == "\x03":
-                raise KeyboardInterrupt
-            if c in ("\x7f", "\b"):
-                if buf:
-                    buf.pop()
-                    sys.stdout.write("\b \b")
-                    sys.stdout.flush()
-                continue
-            buf.append(c)
-            sys.stdout.write(c)
-            sys.stdout.flush()
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old)
-
-
-def _wait_enter_only():
-    """Block until the user presses Enter (multiline paste confirm)."""
-    _drain_stdin()
-    fd = sys.stdin.fileno()
-    old = termios.tcgetattr(fd)
-    try:
-        tty.setcbreak(fd)
-        while True:
-            ch = os.read(fd, 1)
-            if not ch:
-                raise EOFError
-            c = ch.decode("utf-8", errors="replace")
-            if c in "\n\r":
-                sys.stdout.write("\n")
-                sys.stdout.flush()
-                return
-            if c == "\x03":
-                raise KeyboardInterrupt
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old)
-
-
-def _confirm_paste(console, text: str) -> str:
-    """Show pasted text and wait for an explicit Enter before sending."""
-    n = len(text.splitlines())
-    if n > 1:
-        console.print(
-            f"[dim]({n} lines pasted — Enter to send, Ctrl+C to cancel)[/]"
+        editor = Window(
+            BufferControl(buffer=buf),
+            wrap_lines=True,
+            height=Dimension(min=1, max=12),
+            # Without this the editor expands to its max height whenever there's
+            # spare vertical space below the cursor (which the HSplit happily
+            # hands out), leaving a tall empty box. Clamp it to the content's
+            # own height so it sits at one line and grows only as you type.
+            dont_extend_height=True,
+            get_line_prefix=line_prefix,
         )
-        _emit_prompt()
-        _wait_enter_only()
-        return text
-    _emit_prompt()
-    return _confirm_line(text)
+        rule = lambda: Window(height=1, char="─", style="class:border")
+        footer = Window(
+            FormattedTextControl(lambda: ANSI(self._status)), height=1,
+        )
+        root = HSplit([rule(), editor, rule(), footer])
 
+        kb = KeyBindings()
 
-def read_query(console) -> str:
-    """Read one user message from stdin.
+        @kb.add("c-c")
+        def _(event):
+            event.app.exit(exception=KeyboardInterrupt)
 
-    Terminal paste (Cmd+V) arrives as a fast burst (often multiline). We slurp
-    the whole burst before readline sees it, confirm with Enter, and return one
-    query — never a fragment per line.
-    """
-    console.show_cursor(True)
-    _emit_prompt()
-    select.select([sys.stdin], [], [], None)
+        @kb.add("c-d")
+        def _(event):
+            if not buf.text:
+                event.app.exit(exception=EOFError)
 
-    burst = _wait_for_input_burst()
-    if not burst:
-        return _read_line()
+        @kb.add("escape", "enter")          # Alt/Option+Enter inserts a newline
+        def _(event):
+            buf.insert_text("\n")
 
-    body = _parse_bracketed_paste(burst)
-    if body is not None:
-        return _confirm_paste(console, body)
-
-    text = _strip_bracketed_paste(burst.rstrip("\r\n"))
-
-    if _looks_like_paste(burst):
-        return _confirm_paste(console, text)
-
-    if not burst.endswith("\n") and not burst.endswith("\r\n"):
-        _READAHEAD.append(burst)
-        return _read_line()
-
-    return text
+        app = Application(
+            layout=Layout(root, focused_element=editor),
+            key_bindings=merge_key_bindings([load_key_bindings(), kb]),
+            style=self._style,
+            erase_when_done=True,
+            full_screen=False,
+            mouse_support=False,
+        )
+        return app.run()
 
 
 # ---------------------------------------------------------------------------
@@ -381,27 +244,122 @@ def mathify(text):
     return "".join(parts)
 
 
-def _live_markdown(console, answer: str) -> Markdown:
-    """Markdown preview sized to fit the terminal (tail of a long answer).
+class _SegmentLines:
+    """A renderable wrapping pre-rendered, width-bounded segment lines.
 
-    Feeding an unbounded growing string into ``rich.Live`` makes the renderable
-    taller than the viewport; with ``vertical_overflow="visible"`` (Rich's
-    stop() path included) that re-prints the whole answer every refresh.
-    Keep the live widget small — show the latest lines only — and print the
-    full answer once after streaming.
+    The live preview must never be *taller than the viewport* or Rich's
+    ``transient`` cleanup can't erase it: the overflow has already scrolled off
+    the top of the screen by stop() time, so Rich strands it in the scrollback —
+    this is the stray ``…`` frame seen at the top of a long answer. We therefore
+    render the Markdown ourselves, keep only the last N *visual* lines, and hand
+    Rich exactly those, so the live region's height is known and bounded.
     """
-    text = mathify(answer)
-    budget = max(8, console.size.height - 8)
-    lines = text.splitlines()
-    if len(lines) > budget:
-        text = "…\n\n" + "\n".join(lines[-budget:])
-    return Markdown(text)
+
+    def __init__(self, lines: list[list[Segment]]):
+        self._lines = lines
+
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+        for line in self._lines:
+            yield from line
+            yield Segment.line()
+
+
+def _live_markdown(console, answer: str) -> Markdown | _SegmentLines:
+    """Markdown preview bounded to the terminal viewport (tail of a long answer).
+
+    Budgeting by ``splitlines()`` (logical lines) is wrong: one logical line
+    wraps to several *visual* lines, so a "16-line" preview can render to 25+
+    rows and overflow the viewport, breaking the transient erase. We measure the
+    real rendered height and crop to the last ``budget`` visual lines instead.
+    The full, untruncated answer is printed once after streaming completes.
+    """
+    md = Markdown(mathify(answer))
+    budget = max(4, console.size.height - 3)
+    # Coarse logical-line cap first so we don't re-render a huge answer every
+    # frame; ×3 leaves plenty of lines to fill `budget` even when all of them
+    # wrap. The exact crop below is what actually bounds the height.
+    lines = answer.splitlines()
+    if len(lines) > budget * 3:
+        md = Markdown(mathify("\n".join(lines[-budget * 3:])))
+    rendered = console.render_lines(md, console.options, pad=False)
+    if len(rendered) <= budget:
+        return md
+    ellipsis = console.render_lines(Text("…", style="dim"), console.options, pad=False)
+    return _SegmentLines(ellipsis + rendered[-(budget - len(ellipsis)):])
+
+
+# ---------------------------------------------------------------------------
+# Minimalist status footer (the bottom line of the input box).
+#
+# Time-to-first-token, generation speed, the tokens consumed/produced last turn,
+# and how full the context window is. Kept deliberately quiet — dim labels, a
+# single accent colour for the numbers, hair separators — so it reads as chrome.
+# Rendered as a raw ANSI string because it lives inside the prompt_toolkit box.
+# ---------------------------------------------------------------------------
+_S_LABEL = "\x1b[38;5;245m"             # dim grey labels (ttfs, tok/s, ctx, ↑↓)
+_S_VALUE = "\x1b[38;5;80m"              # cyan accent for the numbers
+_S_FAINT = "\x1b[38;5;240m"            # faintest grey — separators and the gauge
+_S_RESET = "\x1b[0m"
+
+
+def _kfmt(n: int) -> str:
+    """Compact token count: 587 · 1.0k · 131k."""
+    n = int(n)
+    if n < 1000:
+        return str(n)
+    if n < 10_000:
+        return f"{n / 1000:.1f}k"
+    return f"{round(n / 1000)}k"
+
+
+def _ctx_bar(frac: float, width: int = 10) -> str:
+    """A hair-thin fill gauge for context usage: ▓▓░░░░░░░░."""
+    frac = max(0.0, min(1.0, frac))
+    fill = int(frac * width + 0.5)
+    if frac > 0 and fill == 0:          # never show a totally empty bar mid-chat
+        fill = 1
+    return "▓" * fill + "░" * (width - fill)
+
+
+def _context_window(model) -> int | None:
+    """The model's max context length, if discoverable from its config."""
+    args = getattr(model, "args", None)
+    val = getattr(args, "max_position_embeddings", None)
+    return val if isinstance(val, int) and val > 0 else None
+
+
+def status_ansi(last, ctx_used, ctx_window) -> str:
+    """The footer text (ANSI) that sits just under the input editor.
+
+    ``last`` carries the most recent turn's metrics (or None before the first
+    reply); context usage persists across the whole conversation and so always
+    shows. Speed metrics only appear once there is a turn to describe.
+    """
+    L, V, F, R = _S_LABEL, _S_VALUE, _S_FAINT, _S_RESET
+    parts = []
+    if last is not None:
+        if last.get("ttfs") is not None:
+            parts.append(f"{L}ttfs {V}{last['ttfs']:.2f}s{R}")
+        if last.get("tps"):
+            parts.append(f"{V}{last['tps']:.1f}{L} tok/s{R}")
+        parts.append(
+            f"{L}↑{V}{_kfmt(last['tok_in'])} {L}↓{V}{_kfmt(last['tok_out'])}{R}"
+        )
+    if ctx_window:
+        frac = ctx_used / ctx_window
+        pct = max(1, round(frac * 100)) if ctx_used else 0
+        parts.append(
+            f"{L}ctx {F}{_ctx_bar(frac)} "
+            f"{V}{_kfmt(ctx_used)}{L}/{_kfmt(ctx_window)}  {pct}%{R}"
+        )
+    else:
+        parts.append(f"{L}ctx {V}{_kfmt(ctx_used)}{R}")
+    return "  " + f" {F}·{R} ".join(parts)
 
 
 def parse_args():
     p = argparse.ArgumentParser(description="Pretty chat with a local MLX model")
     p.add_argument("--model", required=True)
-    p.add_argument("--max-tokens", "-m", type=int, default=4096)
     p.add_argument("--temp", type=float, default=0.0)
     p.add_argument("--top-p", type=float, default=1.0)
     p.add_argument("--seed", type=int, default=0)
@@ -429,6 +387,9 @@ def main():
 
     with console.status(f"[dim]loading {args.model} …[/]", spinner="dots"):
         model, tokenizer = load(args.model)
+
+    ctx_window = _context_window(model)
+    ctx_used = 0                       # running conversation length (mirrors the KV cache)
 
     has_think = bool(getattr(tokenizer, "has_thinking", False))
     ts_tokens = tuple(getattr(tokenizer, "think_start_tokens", ()) or ())
@@ -465,28 +426,38 @@ def main():
     console.print("[dim]q quit · r reset · h help · t toggle thinking[/]\n")
 
     cache = make_prompt_cache(model, args.max_kv_size)
+    last = None                          # metrics from the most recent completed turn
+    box = InputBox()
 
     while True:
+        # The input is a self-erasing box (status footer carries the last turn's
+        # metrics). On submit the box vanishes; we echo only the message so the
+        # scrollback shows the conversation, never the border chrome.
         try:
-            query = read_query(console)
+            query = box.read(status_ansi(last, ctx_used, ctx_window))
         except (EOFError, KeyboardInterrupt):
-            print()
+            console.print()
             break
 
-        if query == "":
+        cmd = query.strip()
+        if cmd == "":
             continue
-        if query == "q":
+        console.print(f"[bold]›[/] {escape(query)}")
+
+        if cmd == "q":
             break
-        if query == "r":
+        if cmd == "r":
             cache = make_prompt_cache(model, args.max_kv_size)
+            ctx_used = 0
+            last = None
             console.print("[dim]— conversation reset —[/]\n")
             continue
-        if query == "h":
-            console.print("[dim]q quit · r reset · h help · t toggle thinking[/]")
+        if cmd == "h":
+            console.print("[dim]q quit · r reset · h help · t toggle thinking[/]\n")
             continue
-        if query == "t":
+        if cmd == "t":
             show_thinking = not show_thinking
-            console.print(f"[dim]thinking trace: {'shown' if show_thinking else 'hidden'}[/]")
+            console.print(f"[dim]thinking trace: {'shown' if show_thinking else 'hidden'}[/]\n")
             continue
 
         messages = []
@@ -557,12 +528,18 @@ def main():
                         live.update(_live_markdown(console, answer))
 
         interrupted = False
+        t_start = time.monotonic()
+        ttfs = None
+        last_resp = None
         try:
             for resp in stream_generate(
                 model, tokenizer, prompt,
-                max_tokens=args.max_tokens, sampler=sampler,
+                max_tokens=-1, sampler=sampler,       # generate until the model stops
                 prompt_cache=cache, logits_processors=logits_processors,
             ):
+                if ttfs is None:
+                    ttfs = time.monotonic() - t_start
+                last_resp = resp
                 tid = resp.token
                 txt = resp.text or ""
 
@@ -600,6 +577,18 @@ def main():
                 emit(ts0_txt)
             console.show_cursor(True)
 
+        # Tokens generated this turn live on in the KV cache, so they count
+        # toward context whether the turn finished cleanly or was interrupted.
+        # Stash this turn's metrics; they surface in the next box's footer.
+        if last_resp is not None:
+            ctx_used += last_resp.prompt_tokens + last_resp.generation_tokens
+            last = {
+                "ttfs": ttfs,
+                "tps": last_resp.generation_tps,
+                "tok_in": last_resp.prompt_tokens,
+                "tok_out": last_resp.generation_tokens,
+            }
+
         if interrupted:
             console.print()
             continue
@@ -615,8 +604,8 @@ def main():
                 # full answer once so nothing is truncated and nothing duplicates.
                 console.print(Markdown(mathify(final)))
             elif has_think:
-                console.print("[yellow dim]…stopped while still thinking — try a "
-                              "higher --max-tokens, or 'r' to reset.[/]")
+                console.print("[yellow dim]…stopped while still thinking — "
+                              "press 'r' to reset.[/]")
         console.print()
 
 
