@@ -22,6 +22,7 @@ What it adds over `mlx_lm.chat`:
 REPL commands:  q quit · r reset · h help · t toggle the thinking trace
 """
 import argparse
+import os
 import re
 import sys
 import time
@@ -377,6 +378,177 @@ def parse_args():
     return p.parse_args()
 
 
+# ---------------------------------------------------------------------------
+# Model backends.
+#
+# The REPL is backend-agnostic: a backend turns a message list into a stream of
+# ``(channel, text)`` events — channel is "reasoning" or "normal" — and stashes
+# the finished turn's metrics on ``last_metrics`` (updated every token so an
+# interrupted turn still reports what it produced). MLX models stream natively
+# through mlx_lm with token-level thinking detection; GGUF models are driven by
+# LocalChat's chatcore.GGUFBackend (llama.cpp), whose generate() already splits
+# thinking from the answer at the text level.
+# ---------------------------------------------------------------------------
+def _is_gguf(model_id: str) -> bool:
+    return model_id.lower().endswith(".gguf")
+
+
+class MLXChat:
+    """Native mlx_lm path: token-level thinking split, KV-cached across turns."""
+    kind = "mlx"
+
+    def __init__(self, model, tokenizer, args):
+        self.model, self.tok, self.args = model, tokenizer, args
+        self.ctx_window = _context_window(model)
+        self._sampler = make_sampler(args.temp, args.top_p)
+        self._lp = None
+        if args.repetition_penalty and args.repetition_penalty != 1.0:
+            self._lp = make_logits_processors(
+                repetition_penalty=args.repetition_penalty,
+                repetition_context_size=args.repetition_context_size,
+            )
+        self._cache = make_prompt_cache(model, args.max_kv_size)
+        self.has_think = bool(getattr(tokenizer, "has_thinking", False))
+        ts_tokens = tuple(getattr(tokenizer, "think_start_tokens", ()) or ())
+        self._te_tokens = tuple(getattr(tokenizer, "think_end_tokens", ()) or ())
+        self._ts_str = getattr(tokenizer, "think_start", None)
+        self._te_str = getattr(tokenizer, "think_end", None)
+        self._ts0 = ts_tokens[0] if len(ts_tokens) >= 1 else None
+        self._ts1 = ts_tokens[1] if len(ts_tokens) >= 2 else None
+        self.last_metrics = None
+
+    def reset(self):
+        self._cache = make_prompt_cache(self.model, self.args.max_kv_size)
+
+    def clean(self, s):
+        # Strip channel control strings that slip through token-level filtering.
+        for marker in (self._ts_str, self._te_str, "<|channel>", "<channel|>"):
+            if marker:
+                s = s.replace(marker, "")
+        return s
+
+    def start_turn(self, messages):
+        prompt = self.tok.apply_chat_template(messages, add_generation_prompt=True)
+        state = "normal"
+        if self.has_think:
+            try:
+                if self.tok.rfind_think_start(prompt) > self.tok.rfind_think_end(prompt):
+                    state = "reasoning"
+            except Exception:
+                state = "normal"
+        ts0, ts1, te_tokens = self._ts0, self._ts1, self._te_tokens
+        hold_start, ts0_txt = False, ""
+        t_start, ttfs = time.monotonic(), None
+        for resp in stream_generate(
+            self.model, self.tok, prompt,
+            max_tokens=-1, sampler=self._sampler,       # generate until the model stops
+            prompt_cache=self._cache, logits_processors=self._lp,
+        ):
+            if ttfs is None:
+                ttfs = time.monotonic() - t_start
+            # Refresh metrics every token so an interrupted turn still reports.
+            self.last_metrics = {
+                "ttfs": ttfs, "tps": resp.generation_tps,
+                "tok_in": resp.prompt_tokens, "tok_out": resp.generation_tokens,
+                "ctx_delta": resp.prompt_tokens + resp.generation_tokens,
+            }
+            tid, txt = resp.token, (resp.text or "")
+            if self.has_think:
+                if hold_start:
+                    hold_start = False
+                    if ts1 is not None and tid == ts1:
+                        state = "reasoning"
+                        continue                  # swallow whole start marker
+                    yield (state, ts0_txt)        # not a marker — emit it
+                if len(te_tokens) == 1 and tid == te_tokens[0]:
+                    state = "normal"
+                    continue
+                if ts1 is not None and tid == ts0:
+                    hold_start, ts0_txt = True, txt
+                    continue
+                if ts1 is None and ts0 is not None and tid == ts0:
+                    state = "reasoning"
+                    continue
+            yield (state, txt)
+        if hold_start:
+            yield (state, ts0_txt)
+
+
+class GGUFChat:
+    """llama.cpp path via chatcore.GGUFBackend (text-level thinking split)."""
+    kind = "gguf"
+
+    def __init__(self, backend, args):
+        self.be, self.args = backend, args
+        self.ctx_window = backend.context_length
+        self.has_think = True
+        self.last_metrics = None
+        self._params = {
+            "temperature": args.temp, "top_p": args.top_p, "seed": args.seed,
+            "repetition_penalty": args.repetition_penalty,
+            "repetition_context_size": args.repetition_context_size,
+            "max_tokens": 32768,        # clamped by chatcore; "until it stops" in practice
+        }
+
+    def reset(self):
+        self.be.new_cache()
+
+    def clean(self, s):
+        for marker in ("<|channel>", "<channel|>"):
+            s = s.replace(marker, "")
+        return s
+
+    def start_turn(self, messages):
+        tok_in = self.be.count_tokens(messages) or 0
+        t_start, ttfs, tps = time.monotonic(), None, None
+        out = 0                 # tok_out: a live split-event estimate until…
+        authoritative = False   # …chatcore's end-of-turn stats reports the exact count.
+
+        def snapshot():
+            self.last_metrics = {"ttfs": ttfs, "tps": tps, "tok_in": tok_in,
+                                 "tok_out": out, "ctx_delta": tok_in + out}
+
+        for channel, payload in self.be.generate(messages, None, self._params):
+            if channel == "stats":
+                # The terminal stats event carries the true generation-token count;
+                # prefer it over the running estimate so the persisted metric is exact.
+                tps = payload.get("tps")
+                if payload.get("tokens"):
+                    out, authoritative = payload["tokens"], True
+                snapshot()
+                continue
+            if ttfs is None:
+                ttfs = time.monotonic() - t_start
+            # The splitter coalesces tokens across chunk boundaries, so one event is
+            # not exactly one token — count events only as a live lower-bound for the
+            # on-screen meter, and stop once the exact count has landed.
+            if not authoritative:
+                out += 1
+            snapshot()
+            yield ("reasoning" if channel == "thinking" else "normal", payload)
+        snapshot()
+
+
+def make_backend(args, console):
+    """Load ``args.model`` and wrap it in the matching backend."""
+    if _is_gguf(args.model):
+        lc = os.environ.get("LOCALCHAT_HOME",
+                            os.path.expanduser("~/Documents/Apps/LocalChat"))
+        if lc not in sys.path:
+            sys.path.insert(0, lc)
+        try:
+            import chatcore
+        except Exception as exc:  # noqa: BLE001
+            console.print(f"[red]GGUF needs LocalChat's chatcore (not importable): {exc}[/]")
+            raise SystemExit(1)
+        with console.status(f"[dim]loading {args.model} …[/]", spinner="dots"):
+            be = chatcore.load(args.model)
+        return GGUFChat(be, args)
+    with console.status(f"[dim]loading {args.model} …[/]", spinner="dots"):
+        model, tokenizer = load(args.model)
+    return MLXChat(model, tokenizer, args)
+
+
 def main():
     args = parse_args()
     mx.random.seed(args.seed)
@@ -385,37 +557,11 @@ def main():
     # rendering the answer once at the end (no live preview).
     live_capable = console.is_terminal and not args.raw
 
-    with console.status(f"[dim]loading {args.model} …[/]", spinner="dots"):
-        model, tokenizer = load(args.model)
-
-    ctx_window = _context_window(model)
+    backend = make_backend(args, console)
+    ctx_window = backend.ctx_window
     ctx_used = 0                       # running conversation length (mirrors the KV cache)
 
-    has_think = bool(getattr(tokenizer, "has_thinking", False))
-    ts_tokens = tuple(getattr(tokenizer, "think_start_tokens", ()) or ())
-    te_tokens = tuple(getattr(tokenizer, "think_end_tokens", ()) or ())
-    ts_str = getattr(tokenizer, "think_start", None)
-    te_str = getattr(tokenizer, "think_end", None)
-    ts0 = ts_tokens[0] if len(ts_tokens) >= 1 else None
-    ts1 = ts_tokens[1] if len(ts_tokens) >= 2 else None
-
-    def clean(s):
-        # Belt-and-suspenders: strip channel control strings that slip through
-        # token-level filtering (the answer/thinking never contain these).
-        for marker in (ts_str, te_str, "<|channel>", "<channel|>"):
-            if marker:
-                s = s.replace(marker, "")
-        return s
-
     show_thinking = not args.hide_thinking
-
-    sampler = make_sampler(args.temp, args.top_p)
-    logits_processors = None
-    if args.repetition_penalty and args.repetition_penalty != 1.0:
-        logits_processors = make_logits_processors(
-            repetition_penalty=args.repetition_penalty,
-            repetition_context_size=args.repetition_context_size,
-        )
 
     # Rebuilding/parsing the whole Markdown on every token is O(n²) and, with a
     # fast model, starves rich's refresh thread (the UI "freezes" until the end).
@@ -425,7 +571,6 @@ def main():
     console.print(f"[bold green]chat[/]  [cyan]{args.model}[/]")
     console.print("[dim]q quit · r reset · h help · t toggle thinking[/]\n")
 
-    cache = make_prompt_cache(model, args.max_kv_size)
     last = None                          # metrics from the most recent completed turn
     box = InputBox()
 
@@ -447,7 +592,7 @@ def main():
         if cmd == "q":
             break
         if cmd == "r":
-            cache = make_prompt_cache(model, args.max_kv_size)
+            backend.reset()
             ctx_used = 0
             last = None
             console.print("[dim]— conversation reset —[/]\n")
@@ -464,19 +609,7 @@ def main():
         if args.system_prompt:
             messages.append({"role": "system", "content": args.system_prompt})
         messages.append({"role": "user", "content": query})
-        prompt = tokenizer.apply_chat_template(messages, add_generation_prompt=True)
-
-        starts_thinking = False
-        if has_think:
-            try:
-                starts_thinking = (
-                    tokenizer.rfind_think_start(prompt)
-                    > tokenizer.rfind_think_end(prompt)
-                )
-            except Exception:
-                starts_thinking = False
-
-        state = "reasoning" if (has_think and starts_thinking) else "normal"
+        state = "normal"
         thinking = ""
         answer = ""
         think_header_shown = False
@@ -484,13 +617,11 @@ def main():
         live = None
         live_used = False
         last_live = 0.0
-        hold_start = False
-        ts0_txt = ""
 
         def emit(text):
             nonlocal thinking, answer, think_header_shown, answer_started, live
             nonlocal last_live, live_used
-            text = clean(text)
+            text = backend.clean(text)
             if not text:
                 return
             if state == "reasoning":
@@ -528,39 +659,10 @@ def main():
                         live.update(_live_markdown(console, answer))
 
         interrupted = False
-        t_start = time.monotonic()
-        ttfs = None
-        last_resp = None
+        backend.last_metrics = None
         try:
-            for resp in stream_generate(
-                model, tokenizer, prompt,
-                max_tokens=-1, sampler=sampler,       # generate until the model stops
-                prompt_cache=cache, logits_processors=logits_processors,
-            ):
-                if ttfs is None:
-                    ttfs = time.monotonic() - t_start
-                last_resp = resp
-                tid = resp.token
-                txt = resp.text or ""
-
-                if has_think:
-                    if hold_start:
-                        hold_start = False
-                        if ts1 is not None and tid == ts1:
-                            state = "reasoning"
-                            continue                  # swallow whole start marker
-                        emit(ts0_txt)                 # not a marker — emit it
-                    if len(te_tokens) == 1 and tid == te_tokens[0]:
-                        state = "normal"
-                        continue
-                    if ts1 is not None and tid == ts0:
-                        hold_start = True
-                        ts0_txt = txt
-                        continue
-                    if ts1 is None and ts0 is not None and tid == ts0:
-                        state = "reasoning"
-                        continue
-
+            for channel, txt in backend.start_turn(messages):
+                state = channel
                 emit(txt)
         except KeyboardInterrupt:
             interrupted = True
@@ -573,20 +675,19 @@ def main():
                 live.update(_live_markdown(console, answer))
                 live.stop()
                 live = None
-            if hold_start:
-                emit(ts0_txt)
             console.show_cursor(True)
 
         # Tokens generated this turn live on in the KV cache, so they count
         # toward context whether the turn finished cleanly or was interrupted.
         # Stash this turn's metrics; they surface in the next box's footer.
-        if last_resp is not None:
-            ctx_used += last_resp.prompt_tokens + last_resp.generation_tokens
+        m = backend.last_metrics
+        if m is not None:
+            ctx_used += m["ctx_delta"]
             last = {
-                "ttfs": ttfs,
-                "tps": last_resp.generation_tps,
-                "tok_in": last_resp.prompt_tokens,
-                "tok_out": last_resp.generation_tokens,
+                "ttfs": m["ttfs"],
+                "tps": m["tps"],
+                "tok_in": m["tok_in"],
+                "tok_out": m["tok_out"],
             }
 
         if interrupted:
@@ -598,12 +699,12 @@ def main():
                 sys.stdout.write("\n")
                 sys.stdout.flush()
         else:
-            final = clean(answer).strip()
+            final = backend.clean(answer).strip()
             if final:
                 # Live preview is transient (viewport-sized tail only); print the
                 # full answer once so nothing is truncated and nothing duplicates.
                 console.print(Markdown(mathify(final)))
-            elif has_think:
+            elif backend.has_think:
                 console.print("[yellow dim]…stopped while still thinking — "
                               "press 'r' to reset.[/]")
         console.print()
